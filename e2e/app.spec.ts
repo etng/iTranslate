@@ -249,3 +249,154 @@ test("seed 注入后历史表格分页可用", async ({ page }) => {
   await expect(page.locator(".history-table tbody tr")).toHaveCount(8);
   await expect(page.getByRole("button", { name: "2" })).toBeVisible();
 });
+
+test("历史记录支持关键字与条件筛选", async ({ page }) => {
+  await page.addInitScript(() => {
+    const entries = [
+      {
+        id: "h-1",
+        title: "Alpha Chapter",
+        createdAt: new Date().toISOString(),
+        sourceLanguage: "English",
+        targetLanguage: "Simplified Chinese",
+        inputRaw: "alpha input",
+        inputMarkdown: "alpha input",
+        outputMarkdown: "alpha output",
+        provider: "ollama",
+        model: "translategemma",
+        engineId: "eng-1",
+        engineName: "引擎A",
+        engineDeleted: false,
+      },
+      {
+        id: "h-2",
+        title: "Beta Section",
+        createdAt: new Date().toISOString(),
+        sourceLanguage: "Japanese",
+        targetLanguage: "Simplified Chinese",
+        inputRaw: "beta input",
+        inputMarkdown: "beta input",
+        outputMarkdown: "beta output",
+        provider: "custom",
+        model: "qwen",
+        engineId: "eng-2",
+        engineName: "引擎B",
+        engineDeleted: false,
+      },
+      {
+        id: "h-3",
+        title: "Gamma Note",
+        createdAt: new Date().toISOString(),
+        sourceLanguage: "English",
+        targetLanguage: "Japanese",
+        inputRaw: "gamma input",
+        inputMarkdown: "gamma input",
+        outputMarkdown: "gamma output",
+        provider: "ollama",
+        model: "llama",
+        engineId: "eng-3",
+        engineName: "引擎C",
+        engineDeleted: false,
+      },
+    ];
+    window.localStorage.setItem("itranslate.setup.done", "1");
+    window.localStorage.setItem("itranslate.history.v1", JSON.stringify(entries));
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "历史记录" }).click();
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(3);
+
+  await page.getByLabel("历史搜索").fill("Beta");
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(1);
+  await expect(page.locator('input[aria-label="历史标题"]')).toHaveValue("Beta Section");
+
+  await page.getByLabel("历史搜索").fill("");
+  await page.getByLabel("筛选源语言").selectOption("Japanese");
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(1);
+  await expect(page.locator('input[aria-label="历史标题"]')).toHaveValue("Beta Section");
+
+  await page.getByLabel("筛选源语言").selectOption("");
+  await page.getByLabel("筛选引擎").selectOption("引擎C");
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(1);
+  await expect(page.locator('input[aria-label="历史标题"]')).toHaveValue("Gamma Note");
+});
+
+test("翻译引擎保存前做必填校验", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("itranslate.setup.done", "1");
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "翻译引擎" }).click();
+  await page.getByRole("button", { name: "新增引擎" }).click();
+
+  const row = page.locator(".history-table tbody tr").first();
+  await row.getByRole("button", { name: "保存" }).click();
+  await expect(row.locator(".field-error")).toContainText("接口地址");
+  await expect(row.locator(".field-error")).toContainText("模型");
+
+  await row.locator("td:nth-child(4) input").fill("translategemma");
+  await row.locator("td:nth-child(3) input").fill("not-a-url");
+  await row.getByRole("button", { name: "保存" }).click();
+  await expect(row.locator(".field-error")).toContainText("有效 URL");
+
+  await row.locator("td:nth-child(3) input").fill("http://127.0.0.1:11434");
+  await row.getByRole("button", { name: "保存" }).click();
+  await expect(row.locator(".field-error")).toHaveCount(0);
+});
+
+test("翻译引擎支持列表筛选", async ({ page }) => {
+  await page.addInitScript(() => {
+    const engines = [
+      {
+        id: "e-1",
+        provider: "ollama",
+        label: "A",
+        name: "本地引擎",
+        endpoint: "http://127.0.0.1:11434",
+        model: "translategemma",
+        enabled: true,
+        deletedAt: null,
+      },
+      {
+        id: "e-2",
+        provider: "custom",
+        label: "B",
+        name: "远端引擎",
+        endpoint: "https://api.example.com",
+        model: "qwen",
+        enabled: true,
+        deletedAt: null,
+      },
+      {
+        id: "e-3",
+        provider: "custom",
+        label: "C",
+        name: "已删除引擎",
+        endpoint: "https://old.example.com",
+        model: "old-model",
+        enabled: false,
+        deletedAt: new Date().toISOString(),
+      },
+    ];
+    window.localStorage.setItem("itranslate.setup.done", "1");
+    window.localStorage.setItem("itranslate.engines.v1", JSON.stringify(engines));
+    window.localStorage.setItem("itranslate.default-engine.v1", "e-1");
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "翻译引擎" }).click();
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(3);
+
+  await page.getByLabel("引擎搜索").fill("远端");
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(1);
+
+  await page.getByLabel("引擎搜索").fill("");
+  await page.getByLabel("筛选提供方").selectOption("custom");
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(2);
+
+  await page.getByLabel("筛选提供方").selectOption("");
+  await page.getByLabel("筛选引擎状态").selectOption("deleted");
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(1);
+});

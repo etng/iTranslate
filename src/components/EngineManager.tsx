@@ -17,8 +17,36 @@ interface EngineManagerProps {
 
 export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
   const [editing, setEditing] = useState<Record<string, TranslatorModelConfig>>({});
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
+  const [keyword, setKeyword] = useState("");
+  const [providerFilter, setProviderFilter] = useState<"" | TranslatorModelConfig["provider"]>("");
+  const [statusFilter, setStatusFilter] = useState<"" | "available" | "paused" | "deleted">("");
 
   const available = useMemo(() => getAvailableEngines(state.engines), [state.engines]);
+  const filteredEngines = useMemo(() => {
+    const search = keyword.trim().toLowerCase();
+    return state.engines.filter((engine) => {
+      if (providerFilter && engine.provider !== providerFilter) {
+        return false;
+      }
+
+      if (statusFilter === "available" && (engine.deletedAt || !engine.enabled)) {
+        return false;
+      }
+      if (statusFilter === "paused" && (engine.deletedAt || engine.enabled)) {
+        return false;
+      }
+      if (statusFilter === "deleted" && !engine.deletedAt) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+      const text = `${engine.name}\n${engine.endpoint}\n${engine.model}`.toLowerCase();
+      return text.includes(search);
+    });
+  }, [keyword, providerFilter, state.engines, statusFilter]);
 
   const handleCreate = () => {
     const engine = createNewEngineTemplate();
@@ -34,6 +62,14 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
       return;
     }
     setEditing((prev) => ({ ...prev, [id]: { ...base, ...patch } }));
+    setSaveErrors((prev) => {
+      if (!prev[id]) {
+        return prev;
+      }
+      const copied = { ...prev };
+      delete copied[id];
+      return copied;
+    });
   };
 
   const handleSave = (id: string) => {
@@ -42,8 +78,46 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
       return;
     }
 
+    const missing: string[] = [];
+    if (!draft.name.trim()) {
+      missing.push("名称");
+    }
+    if (!draft.endpoint.trim()) {
+      missing.push("接口地址");
+    }
+    if (!draft.model.trim()) {
+      missing.push("模型");
+    }
+    if (missing.length > 0) {
+      const message = `保存失败：请填写${missing.join("、")}`;
+      setSaveErrors((prev) => ({ ...prev, [id]: message }));
+      onLog("WARN", `${draft.name || "未命名引擎"} ${message}`);
+      return;
+    }
+
+    let endpoint: URL;
+    try {
+      endpoint = new URL(draft.endpoint);
+    } catch {
+      const message = "保存失败：接口地址必须是有效 URL";
+      setSaveErrors((prev) => ({ ...prev, [id]: message }));
+      onLog("WARN", `${draft.name || "未命名引擎"} ${message}`);
+      return;
+    }
+    if (!/^https?:$/.test(endpoint.protocol)) {
+      const message = "保存失败：接口地址仅支持 http/https";
+      setSaveErrors((prev) => ({ ...prev, [id]: message }));
+      onLog("WARN", `${draft.name || "未命名引擎"} ${message}`);
+      return;
+    }
+
     const next = upsertEngine(state, { ...draft, deletedAt: null });
     onChange(next);
+    setSaveErrors((prev) => {
+      const copied = { ...prev };
+      delete copied[id];
+      return copied;
+    });
     setEditing((prev) => {
       const copied = { ...prev };
       delete copied[id];
@@ -55,6 +129,11 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
   const handleDelete = (id: string) => {
     const next = markEngineDeleted(state, id);
     onChange(next);
+    setSaveErrors((prev) => {
+      const copied = { ...prev };
+      delete copied[id];
+      return copied;
+    });
     onLog("WARN", `软删除翻译引擎：${id}`);
   };
 
@@ -80,9 +159,37 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
         <h2>翻译引擎</h2>
         <div className="nav-buttons">
           <button type="button" onClick={handleCreate}>新增引擎</button>
-          <span>可用 {available.length} 个</span>
+          <span>可用 {available.length} 个 / 筛选后 {filteredEngines.length} 个</span>
         </div>
       </header>
+
+      <section className="history-filters">
+        <input
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          placeholder="搜索名称/地址/模型"
+          aria-label="引擎搜索"
+        />
+        <select
+          value={providerFilter}
+          onChange={(event) => setProviderFilter(event.target.value as "" | TranslatorModelConfig["provider"])}
+          aria-label="筛选提供方"
+        >
+          <option value="">全部提供方</option>
+          <option value="ollama">ollama</option>
+          <option value="custom">custom</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value as "" | "available" | "paused" | "deleted")}
+          aria-label="筛选引擎状态"
+        >
+          <option value="">全部状态</option>
+          <option value="available">可用</option>
+          <option value="paused">暂停</option>
+          <option value="deleted">已删除</option>
+        </select>
+      </section>
 
       <div className="history-table-wrap">
         <table className="history-table">
@@ -98,7 +205,7 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
             </tr>
           </thead>
           <tbody>
-            {state.engines.map((engine) => {
+            {filteredEngines.map((engine) => {
               const row = editing[engine.id] ?? engine;
               const deleted = Boolean(engine.deletedAt);
 
@@ -178,10 +285,16 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
                       </button>
                       <button type="button" onClick={() => handleDelete(engine.id)} disabled={deleted}>删除</button>
                     </div>
+                    {saveErrors[engine.id] ? <p className="field-error">{saveErrors[engine.id]}</p> : null}
                   </td>
                 </tr>
               );
             })}
+            {filteredEngines.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="empty">没有符合条件的引擎</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
