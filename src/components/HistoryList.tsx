@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranslationHistoryItem } from "../types";
 import { Pagination } from "./Pagination";
 
@@ -20,15 +21,116 @@ export function HistoryList({
   onRenameTitle,
   onDelete,
 }: HistoryListProps) {
-  const start = (currentPage - 1) * pageSize;
-  const pageItems = items.slice(start, start + pageSize);
+  const [searchText, setSearchText] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [targetFilter, setTargetFilter] = useState("");
+  const [engineFilter, setEngineFilter] = useState("");
+  const prevFiltersRef = useRef({
+    searchText: "",
+    sourceFilter: "",
+    targetFilter: "",
+    engineFilter: "",
+  });
+
+  const sourceOptions = useMemo(() => {
+    return Array.from(new Set(items.map((item) => item.sourceLanguage))).sort();
+  }, [items]);
+
+  const targetOptions = useMemo(() => {
+    return Array.from(new Set(items.map((item) => item.targetLanguage))).sort();
+  }, [items]);
+
+  const engineOptions = useMemo(() => {
+    return Array.from(new Set(items.map((item) => item.engineName))).sort();
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const keyword = searchText.trim().toLowerCase();
+    return items.filter((item) => {
+      if (sourceFilter && item.sourceLanguage !== sourceFilter) {
+        return false;
+      }
+      if (targetFilter && item.targetLanguage !== targetFilter) {
+        return false;
+      }
+      if (engineFilter && item.engineName !== engineFilter) {
+        return false;
+      }
+      if (!keyword) {
+        return true;
+      }
+      const haystack = [item.title, item.inputMarkdown, item.outputMarkdown, item.engineName]
+        .join("\n")
+        .toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [engineFilter, items, searchText, sourceFilter, targetFilter]);
+
+  useEffect(() => {
+    const prev = prevFiltersRef.current;
+    if (
+      prev.searchText === searchText
+      && prev.sourceFilter === sourceFilter
+      && prev.targetFilter === targetFilter
+      && prev.engineFilter === engineFilter
+    ) {
+      return;
+    }
+    prevFiltersRef.current = { searchText, sourceFilter, targetFilter, engineFilter };
+    onChangePage(1);
+  }, [engineFilter, onChangePage, searchText, sourceFilter, targetFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      onChangePage(totalPages);
+    }
+  }, [currentPage, onChangePage, totalPages]);
+
+  const safePage = Math.min(currentPage, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const pageItems = filteredItems.slice(start, start + pageSize);
 
   return (
     <section className="history-list">
       <header className="history-header">
         <h2>历史记录</h2>
-        <p>共 {items.length} 条</p>
+        <p>共 {items.length} 条 / 筛选后 {filteredItems.length} 条</p>
       </header>
+
+      <section className="history-filters">
+        <input
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+          placeholder="搜索标题/原文/译文/引擎"
+          aria-label="历史搜索"
+        />
+        <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} aria-label="筛选源语言">
+          <option value="">全部源语言</option>
+          {sourceOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        <select value={targetFilter} onChange={(event) => setTargetFilter(event.target.value)} aria-label="筛选目标语言">
+          <option value="">全部目标语言</option>
+          {targetOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        <select value={engineFilter} onChange={(event) => setEngineFilter(event.target.value)} aria-label="筛选引擎">
+          <option value="">全部引擎</option>
+          {engineOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </section>
 
       {pageItems.length === 0 ? (
         <p className="empty">暂无记录</p>
@@ -82,9 +184,9 @@ export function HistoryList({
       )}
 
       <Pagination
-        currentPage={currentPage}
+        currentPage={safePage}
         pageSize={pageSize}
-        total={items.length}
+        total={filteredItems.length}
         onChange={onChangePage}
       />
     </section>
