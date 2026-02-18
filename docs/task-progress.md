@@ -51,6 +51,7 @@
 - 原生菜单支持“关于 / 检查更新”。
 - 检查更新对接 GitHub `releases/latest`。
 - 翻译链路日志增强：开始/结束/耗时/失败细节，便于定位卡顿。
+- 修复自动发版阻塞问题：更新 tauri-action 参数并替换默认 bundle identifier。
 
 ## 当前待办
 
