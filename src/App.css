@@ -11,23 +11,18 @@
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   gap: 8px;
+  overflow-x: hidden;
 }
 
 .top-nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 8px 10px;
-}
-
-.brand {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
 }
 
 .nav-buttons {
@@ -70,7 +65,7 @@ button:disabled,
 
 .lang-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -99,9 +94,14 @@ textarea {
 .panels,
 .detail-panels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   min-height: 0;
+}
+
+.panels > *,
+.detail-panels > * {
+  min-width: 0;
 }
 
 .fill-panels {
@@ -146,6 +146,7 @@ textarea {
   display: grid;
   grid-template-rows: auto 1fr;
   min-height: 0;
+  overflow: hidden;
 }
 
 .switches {
@@ -222,7 +223,7 @@ textarea {
   .lang-row,
   .panels,
   .detail-panels {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .fill-panels {

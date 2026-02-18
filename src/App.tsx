@@ -268,7 +268,6 @@ function App() {
     return (
       <main className="app-shell full-screen">
         <header className="top-nav">
-          <div className="brand">iTranslate</div>
           <div className="nav-buttons">
             <button type="button" className="icon-btn" onClick={() => setScreen("translator")}>
               <Languages size={16} />
@@ -313,7 +312,6 @@ function App() {
   return (
     <main className="app-shell full-screen">
       <header className="top-nav">
-        <div className="brand">iTranslate</div>
         <div className="nav-buttons">
           <button type="button" className="icon-btn active">
             <Languages size={16} />

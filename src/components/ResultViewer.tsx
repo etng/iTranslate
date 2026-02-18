@@ -1,6 +1,7 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { githubLight } from "@uiw/codemirror-theme-github";
+import { EditorView } from "@codemirror/view";
 import { renderMarkdownToHtml } from "../services/markdown";
 
 interface ResultViewerProps {
@@ -39,7 +40,7 @@ export function ResultViewer({ markdownText, viewMode, onChangeViewMode }: Resul
           value={markdownText}
           editable={false}
           theme={githubLight}
-          extensions={[markdown()]}
+          extensions={[markdown(), EditorView.lineWrapping]}
           basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: false }}
           height="100%"
         />

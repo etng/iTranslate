@@ -54,13 +54,13 @@ test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => 
   await page.goto("/");
   await expect(page.getByText("iTranslate 初始化向导")).toBeVisible();
   await page.getByRole("button", { name: "验证并进入" }).click();
-  await expect(page.getByRole("button", { name: "开始翻译" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
 
   for (const chapter of chapters) {
     await page
-      .getByPlaceholder("支持粘贴普通文本或 HTML，HTML 会先转换为 Markdown 再翻译")
+      .getByPlaceholder("支持粘贴普通文本或 HTML。快捷键粘贴会自动识别 HTML 并转 Markdown")
       .fill(chapter.markdown);
-    await page.getByRole("button", { name: "开始翻译" }).click();
+    await page.getByRole("button", { name: "马上翻译" }).click();
     await expect(page.getByText("翻译完成")).toBeVisible();
   }
 
@@ -81,4 +81,77 @@ test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => 
 
   await page.getByRole("button", { name: "返回历史列表" }).click();
   await expect(page.locator(".pagination .active")).toHaveText("2");
+});
+
+test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "验证并进入" }).click();
+  await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
+
+  const inputArea = page.locator(".input-panel textarea");
+
+  await inputArea.click();
+  await inputArea.type("manual typing only");
+  await page.waitForTimeout(900);
+  await expect(page.getByText("等待翻译")).toBeVisible();
+
+  await page.getByRole("button", { name: "马上翻译" }).click();
+  await expect(page.getByText("翻译完成")).toBeVisible();
+
+  await inputArea.click();
+  await page.evaluate(() => {
+    const el = document.querySelector("textarea");
+    if (!el) {
+      throw new Error("textarea not found");
+    }
+
+    el.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "v",
+        ctrlKey: true,
+        bubbles: true,
+      }),
+    );
+
+    const data = new DataTransfer();
+    data.setData("text/plain", "plain");
+    data.setData("text/html", "<h2>PasteTitle</h2><p>Paste paragraph</p>");
+    el.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: data,
+        bubbles: true,
+      }),
+    );
+  });
+
+  await expect(inputArea).toHaveValue(/## PasteTitle/);
+  await expect(page.getByText("已将 HTML 转换为 Markdown 后粘贴，稍后自动翻译")).toBeVisible();
+  await expect(page.getByText("翻译完成")).toBeVisible();
+
+  const widthData = await page.evaluate(() => {
+    const panels = document.querySelector(".panels");
+    const inputPanel = document.querySelector(".input-panel");
+    const resultPanel = document.querySelector(".result-panel");
+    if (!panels || !inputPanel || !resultPanel) {
+      return { horizontalOverflow: 1, widthDiff: 999 };
+    }
+
+    const panelRect = panels.getBoundingClientRect();
+    const inputRect = inputPanel.getBoundingClientRect();
+    const resultRect = resultPanel.getBoundingClientRect();
+
+    const horizontalOverflow = Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.body.clientWidth,
+    );
+
+    return {
+      horizontalOverflow,
+      widthDiff: Math.abs(inputRect.width - resultRect.width),
+      panelWidth: panelRect.width,
+    };
+  });
+
+  expect(widthData.horizontalOverflow).toBeLessThanOrEqual(1);
+  expect(widthData.widthDiff).toBeLessThan(6);
 });

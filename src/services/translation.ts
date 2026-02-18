@@ -17,15 +17,35 @@ interface OllamaHealthPayload {
   model: string;
 }
 
-const FORMAT_PRESERVE_RULES = `\n\n请严格保留 Markdown 结构与层级：\n1. 标题层级、列表层级、表格结构、引用块、代码块必须原样保留。\n2. 不要新增或删除段落与行。\n3. 代码块内内容不翻译。\n4. 链接 URL 不翻译，仅翻译可见文本。\n5. 仅输出翻译后的 Markdown，不要解释。`;
+const LANGUAGE_CODE_MAP: Record<string, string> = {
+  English: "en",
+  "Simplified Chinese": "zh-CN",
+  "Traditional Chinese": "zh-TW",
+  Japanese: "ja",
+  Korean: "ko",
+  French: "fr",
+  German: "de",
+  Spanish: "es",
+  Russian: "ru",
+};
+
+function resolveLanguageCode(languageName: string): string {
+  return LANGUAGE_CODE_MAP[languageName] ?? languageName.toLowerCase().replace(/\s+/g, "-");
+}
 
 export function buildTranslategemmaPrompt(
   sourceLanguage: string,
   targetLanguage: string,
   sourceText: string,
 ): string {
-  const promptPrefix = `Translate from ${sourceLanguage} to ${targetLanguage}.\nSource: ${sourceLanguage}: ${sourceText}\nTranslation: ${targetLanguage}:`;
-  return `${promptPrefix}${FORMAT_PRESERVE_RULES}`;
+  const sourceCode = resolveLanguageCode(sourceLanguage);
+  const targetCode = resolveLanguageCode(targetLanguage);
+
+  return `You are a professional ${sourceLanguage} (${sourceCode}) to ${targetLanguage} (${targetCode}) translator. Your goal is to accurately convey the meaning and nuances of the original ${sourceLanguage} text while adhering to ${targetLanguage} grammar, vocabulary, and cultural sensitivities.
+Produce only the ${targetLanguage} translation, without any additional explanations or commentary. Please translate the following ${sourceLanguage} text into ${targetLanguage}:
+
+
+${sourceText}`;
 }
 
 export async function checkOllamaHealth(
