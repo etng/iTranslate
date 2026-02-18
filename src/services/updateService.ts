@@ -65,7 +65,10 @@ export async function checkForUpdatesByMenu(): Promise<void> {
     : latest.version;
 
   if (!hasNewerBuild(current, remoteVersion)) {
-    await message("当前已经是最新版本", { title: "检查更新", kind: "info" });
+    await message(`当前已经是最新版本\n本地：${current}\n远端：${remoteVersion}`, {
+      title: "检查更新",
+      kind: "info",
+    });
     return;
   }
 
