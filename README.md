@@ -45,7 +45,7 @@ make check        # lint + 单测 + cargo check
 make setup-e2e    # 安装 Playwright Chromium
 make seed-history # 生成分页演示 seed（下次启动自动注入一次）
 make bump-version PART=patch  # 升级版本并创建对应 git tag
-make release PART=patch       # 升级版本并推送 tag（触发自动发版）
+make release PART=patch       # 升级版本并按当前分支推送 tag（触发自动发版）
 make signer-generate      # 生成 Tauri updater 密钥对
 make signer-copy-private  # 复制私钥到剪贴板（GitHub Secret）
 make signer-copy-public   # 复制公钥到剪贴板

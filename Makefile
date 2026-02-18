@@ -50,7 +50,12 @@ release:
 		exit 1; \
 	fi
 	@$(MAKE) bump-version PART=$(PART)
-	@git push origin main --tags
+	@BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ -z "$$BRANCH" ] || [ "$$BRANCH" = "HEAD" ]; then \
+		echo "无法识别当前分支，请手动执行：git push origin <branch> --tags"; \
+		exit 1; \
+	fi; \
+	git push origin "$$BRANCH" --tags
 
 setup-e2e: install
 	@npx playwright install chromium
