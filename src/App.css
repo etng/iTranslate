@@ -1,31 +1,60 @@
 .app-shell {
-  max-width: 1280px;
-  margin: 16px auto;
-  padding: 12px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 10px;
+}
+
+.full-screen {
+  width: 100vw;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 8px;
 }
 
 .top-nav {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
 }
 
-.top-nav button,
-button {
+.brand {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+button,
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #111827;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 11px;
   cursor: pointer;
 }
 
-button:disabled {
+button:disabled,
+.icon-btn:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
 
-.top-nav .active,
+.icon-btn.active,
 .switches .active,
 .pagination .active {
   border-color: #2563eb;
@@ -33,18 +62,27 @@ button:disabled {
   background: #eff6ff;
 }
 
+.icon-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
 .lang-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+}
+
+.compact-row label {
+  gap: 4px;
 }
 
 label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 14px;
+  font-size: 13px;
   color: #4b5563;
 }
 
@@ -62,7 +100,12 @@ textarea {
 .detail-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
+  min-height: 0;
+}
+
+.fill-panels {
+  height: 100%;
 }
 
 .input-panel,
@@ -72,22 +115,37 @@ textarea {
 .setup-wizard {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 0;
 }
 
-.input-panel textarea,
-.history-detail textarea {
-  min-height: 420px;
-  resize: vertical;
+.fill-panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
 }
 
+.panel-header,
 .result-header,
 .detail-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.input-panel textarea,
+.history-detail textarea {
+  min-height: 0;
+  height: 100%;
+  resize: none;
+}
+
+.result-panel {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
 }
 
 .switches {
@@ -99,14 +157,15 @@ textarea {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   padding: 12px;
-  min-height: 420px;
+  height: 100%;
   overflow: auto;
 }
 
 .status-text,
 .setup-status {
   color: #4b5563;
-  margin-top: 8px;
+  margin: 0;
+  font-size: 13px;
 }
 
 .history-list ul {
@@ -147,7 +206,6 @@ textarea {
 }
 
 .latest-footer {
-  margin-top: 8px;
   color: #6b7280;
   font-size: 13px;
 }
@@ -156,10 +214,23 @@ textarea {
   color: #6b7280;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
+  .full-screen {
+    grid-template-rows: auto auto auto 1fr auto;
+  }
+
   .lang-row,
   .panels,
   .detail-panels {
     grid-template-columns: 1fr;
+  }
+
+  .fill-panels {
+    height: auto;
+  }
+
+  .input-panel textarea,
+  .history-detail textarea {
+    min-height: 280px;
   }
 }
