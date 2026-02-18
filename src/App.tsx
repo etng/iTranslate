@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { ChevronDown, ChevronUp, FileText, History, Info, Languages, Play, Server } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, History, Info, Languages, Play, Server, Settings } from "lucide-react";
 import {
   APP_BUILD_NUMBER,
   APP_SEMVER,
@@ -21,6 +21,7 @@ import type {
   EngineStoreState,
   TranslationHistoryItem,
   TranslatorModelConfig,
+  UserPreferences,
 } from "./types";
 import { preprocessInput } from "./services/preprocess";
 import { translateWithModel } from "./services/translation";
@@ -48,6 +49,8 @@ import { isTauriRuntime } from "./utils/runtime";
 import { historySeedEntries } from "./seeds/historySeed";
 import { EngineManager } from "./components/EngineManager";
 import { detectSourceLanguage } from "./services/languageDetect";
+import { loadPreferences, savePreferences } from "./services/preferencesStore";
+import { PreferencesPanel } from "./components/PreferencesPanel";
 import {
   getBlockIndexByLine,
   getBlockRangeByIndex,
@@ -110,12 +113,13 @@ function App() {
 
   const [history, setHistory] = useState<TranslationHistoryItem[]>(() => loadHistory());
   const [historyPage, setHistoryPage] = useState(1);
-  const [screen, setScreen] = useState<"translator" | "history" | "historyDetail" | "engines">("translator");
+  const [screen, setScreen] = useState<"translator" | "history" | "historyDetail" | "engines" | "preferences">("translator");
   const [selectedHistory, setSelectedHistory] = useState<TranslationHistoryItem | null>(null);
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
 
   const [engineState, setEngineState] = useState<EngineStoreState>(() => loadEngineState());
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
+  const [preferences, setPreferences] = useState<UserPreferences>(() => loadPreferences());
 
   const [runtimeLogs, setRuntimeLogs] = useState<RuntimeLog[]>([]);
   const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
@@ -160,6 +164,10 @@ function App() {
   useEffect(() => {
     saveEngineState(engineState);
   }, [engineState]);
+
+  useEffect(() => {
+    savePreferences(preferences);
+  }, [preferences]);
 
   useEffect(() => {
     if (!setupDone) {
@@ -473,6 +481,15 @@ function App() {
             >
               <Server size={16} />
             </button>
+            <button
+              type="button"
+              title="用户偏好"
+              aria-label="用户偏好"
+              className={`icon-btn icon-only ${screen === "preferences" ? "active" : ""}`}
+              onClick={() => setScreen("preferences")}
+            >
+              <Settings size={16} />
+            </button>
           </div>
         </header>
       ) : null}
@@ -584,6 +601,10 @@ function App() {
             setHistory(deleteHistoryById(id));
             appendLog("WARN", `删除历史记录：${id}`);
           }}
+          defaultEpubAuthor={preferences.epubDefaultAuthor}
+          defaultEpubDir={preferences.epubDefaultExportDir}
+          onChangeDefaultEpubAuthor={(author) => setPreferences((prev) => ({ ...prev, epubDefaultAuthor: author }))}
+          onChangeDefaultEpubDir={(dir) => setPreferences((prev) => ({ ...prev, epubDefaultExportDir: dir }))}
         />
       ) : null}
 
@@ -615,6 +636,13 @@ function App() {
           state={engineState}
           onChange={setEngineState}
           onLog={appendLog}
+        />
+      ) : null}
+
+      {screen === "preferences" ? (
+        <PreferencesPanel
+          value={preferences}
+          onChange={setPreferences}
         />
       ) : null}
 

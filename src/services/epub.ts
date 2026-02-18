@@ -1,6 +1,9 @@
 import JSZip from "jszip";
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { renderMarkdownToHtml } from "./markdown";
 import type { TranslationHistoryItem } from "../types";
+import { isTauriRuntime } from "../utils/runtime";
 
 interface EpubChapter {
   id: string;
@@ -182,4 +185,29 @@ export function downloadBlob(blob: Blob, filename: string): void {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function saveEpubByPicker(
+  blob: Blob,
+  filename: string,
+  defaultDir?: string | null,
+): Promise<string | null> {
+  if (!isTauriRuntime()) {
+    downloadBlob(blob, filename);
+    return null;
+  }
+
+  const defaultPath = defaultDir ? `${defaultDir}/${filename}` : filename;
+  const selected = await save({
+    defaultPath,
+    filters: [{ name: "EPUB", extensions: ["epub"] }],
+  });
+
+  if (!selected || typeof selected !== "string") {
+    return null;
+  }
+
+  const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+  await invoke("save_binary_file", { payload: { path: selected, bytes } });
+  return selected;
 }

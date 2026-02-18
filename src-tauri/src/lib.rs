@@ -1,5 +1,6 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use tauri::Emitter;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
@@ -49,6 +50,13 @@ struct OllamaTagsResponse {
 #[derive(Debug, Deserialize)]
 struct OllamaModel {
   name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveBinaryPayload {
+  path: String,
+  bytes: Vec<u8>,
 }
 
 #[tauri::command]
@@ -141,6 +149,11 @@ async fn check_ollama_health(payload: OllamaHealthPayload) -> Result<OllamaHealt
   })
 }
 
+#[tauri::command]
+async fn save_binary_file(payload: SaveBinaryPayload) -> Result<(), String> {
+  fs::write(payload.path, payload.bytes).map_err(|error| format!("写入文件失败: {error}"))
+}
+
 fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
   let about = MenuItem::with_id(app, "about", "关于", true, None::<&str>)?;
   let check_update = MenuItem::with_id(app, "check-update", "检查更新", true, None::<&str>)?;
@@ -196,7 +209,7 @@ pub fn run() {
         _ => {}
       }
     })
-    .invoke_handler(tauri::generate_handler![translate_text, check_ollama_health])
+    .invoke_handler(tauri::generate_handler![translate_text, check_ollama_health, save_binary_file])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
