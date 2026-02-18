@@ -8,7 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { ChevronDown, ChevronUp, FilePlus2, FileText, History, Info, Languages, Play, Server, Settings } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, FilePlus2, FileText, History, Info, Languages, Play, Server, Settings } from "lucide-react";
 import {
   APP_BUILD_NUMBER,
   APP_SEMVER,
@@ -53,11 +53,18 @@ import { EngineManager } from "./components/EngineManager";
 import { detectSourceLanguage } from "./services/languageDetect";
 import { loadPreferences, savePreferences } from "./services/preferencesStore";
 import { PreferencesPanel } from "./components/PreferencesPanel";
+import { EpubImportWizard } from "./components/EpubImportWizard";
 import {
   getBlockIndexByLine,
   getBlockRangeByIndex,
   type MarkdownBlockRange,
 } from "./services/markdownBlockMap";
+import {
+  buildEpubHistoryTitle,
+  buildTranslatedEpubFileName,
+  parseEpubFile,
+} from "./services/epubImport";
+import { buildBilingualEpubBlob, saveEpubByPicker } from "./services/epub";
 import "./App.css";
 
 const SETUP_KEY = "itranslate.setup.done";
@@ -145,6 +152,13 @@ function App() {
     LEARNING_QUOTES.length > 0 ? Math.floor(Math.random() * LEARNING_QUOTES.length) : 0
   ));
   const [quoteHistoryTitle, setQuoteHistoryTitle] = useState<string | null>(null);
+  const [epubWizardOpen, setEpubWizardOpen] = useState(false);
+  const [epubPipelineRunning, setEpubPipelineRunning] = useState(false);
+  const [epubPipelineProgress, setEpubPipelineProgress] = useState({
+    current: 0,
+    total: 0,
+    message: "等待开始",
+  });
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
@@ -626,6 +640,100 @@ function App() {
   const lastLog = runtimeLogs[0];
   const latestHistoryItem = history[0];
 
+  const handleStartEpubPipeline = useCallback(async (payload: {
+    file: File;
+    sourceLanguage: string;
+    targetLanguage: string;
+    engineId: string;
+  }) => {
+    const engine = availableEngines.find((item) => item.id === payload.engineId) ?? null;
+    if (!engine) {
+      setStatusText("请选择可用翻译引擎");
+      appendLog("WARN", "EPUB 闭环翻译失败：引擎无效");
+      return;
+    }
+
+    setSelectedEngineId(engine.id);
+    setEpubPipelineRunning(true);
+    setEpubPipelineProgress({ current: 0, total: 0, message: "解析 EPUB 中..." });
+    appendLog("INFO", `EPUB 闭环翻译启动：${payload.file.name}`);
+
+    try {
+      const imported = await parseEpubFile(payload.file);
+      if (imported.chapters.length === 0) {
+        throw new Error("未在 EPUB 中发现可翻译章节（HTML/XHTML）");
+      }
+
+      setEpubPipelineProgress({
+        current: 0,
+        total: imported.chapters.length,
+        message: "开始批量翻译...",
+      });
+
+      const translatedItems: TranslationHistoryItem[] = [];
+      for (let index = 0; index < imported.chapters.length; index += 1) {
+        const chapter = imported.chapters[index];
+        setEpubPipelineProgress({
+          current: index + 1,
+          total: imported.chapters.length,
+          message: `翻译章节 ${chapter.fileName}`,
+        });
+
+        const result = await translateWithModel({
+          sourceLanguage: payload.sourceLanguage,
+          targetLanguage: payload.targetLanguage,
+          inputRaw: chapter.html,
+          inputMarkdown: chapter.markdown,
+          modelConfig: engine,
+        });
+
+        translatedItems.push(createHistoryItem({
+          title: buildEpubHistoryTitle(imported.fileNameBase, chapter.fileName),
+          sourceLanguage: payload.sourceLanguage,
+          targetLanguage: payload.targetLanguage,
+          inputRaw: chapter.html,
+          inputMarkdown: chapter.markdown,
+          outputMarkdown: result.outputMarkdown,
+          engine,
+        }));
+      }
+
+      const merged = [
+        ...translatedItems,
+        ...loadHistory(),
+      ];
+      saveHistory(merged);
+      setHistory(loadHistory());
+
+      setEpubPipelineProgress({
+        current: translatedItems.length,
+        total: translatedItems.length,
+        message: "生成并导出 EPUB...",
+      });
+
+      const exportBlob = await buildBilingualEpubBlob(translatedItems, {
+        title: `${imported.metaTitle || imported.fileNameBase}（已翻译）`,
+        author: imported.metaAuthor || preferences.epubDefaultAuthor || "iTranslate",
+        language: imported.metaLanguage || payload.targetLanguage,
+        identifier: crypto.randomUUID(),
+      });
+      const exportName = buildTranslatedEpubFileName(imported.fileNameBase);
+      const savedPath = await saveEpubByPicker(exportBlob, exportName, preferences.epubDefaultExportDir);
+
+      setEpubWizardOpen(false);
+      setScreen("history");
+      setStatusText("EPUB 闭环翻译已完成");
+      setToastMessage(savedPath ? `EPUB 闭环翻译完成：${savedPath}` : "EPUB 闭环翻译完成");
+      appendLog("INFO", `EPUB 闭环翻译完成：${payload.file.name}，章节数=${translatedItems.length}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "未知错误";
+      setStatusText(`EPUB 闭环翻译失败：${message}`);
+      appendLog("ERROR", `EPUB 闭环翻译失败：${message}`);
+    } finally {
+      setEpubPipelineRunning(false);
+    }
+  }, [appendLog, availableEngines, preferences.epubDefaultAuthor, preferences.epubDefaultExportDir]);
+
   if (!setupDone) {
     return <SetupWizard modelConfig={modelConfig} onComplete={handleEnterApp} />;
   }
@@ -648,6 +756,15 @@ function App() {
           ) : null}
         </div>
         <div className="nav-buttons">
+          <button
+            type="button"
+            title="EPUB闭环翻译"
+            aria-label="EPUB闭环翻译"
+            className={`icon-btn icon-only ${epubWizardOpen ? "active" : ""}`}
+            onClick={() => setEpubWizardOpen(true)}
+          >
+            <BookOpen size={16} />
+          </button>
           <button
             type="button"
             title="翻译"
@@ -855,6 +972,26 @@ function App() {
           />
         ) : null}
       </section>
+
+      <EpubImportWizard
+        open={epubWizardOpen}
+        running={epubPipelineRunning}
+        sourceLanguage={sourceLanguage}
+        targetLanguage={targetLanguage}
+        selectedEngineId={selectedEngine?.id ?? ""}
+        languages={LANGUAGE_OPTIONS}
+        engines={availableEngines}
+        progress={epubPipelineProgress}
+        onClose={() => {
+          if (epubPipelineRunning) {
+            return;
+          }
+          setEpubWizardOpen(false);
+        }}
+        onStart={(payload) => {
+          void handleStartEpubPipeline(payload);
+        }}
+      />
 
       <section
         className={`bottom-dock ${bottomCollapsed ? "collapsed" : ""}`}
