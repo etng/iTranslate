@@ -8,6 +8,9 @@
 
 ## 已完成
 
+- [x] 顶部名言点击可直接新建翻译任务（源文本为该名言）
+- [x] 名言任务历史标题固定为“名言警句翻译+年月日时分秒”
+- [x] 恢复发布矩阵到 macOS/Linux/Windows，验证后发 minor release
 - [x] GitHub Actions 发布提速：Rust 缓存 + 缩减默认平台 + 减少重复前端构建开销
 - [x] 修复发版脚本残留版本改动：bump 后自动提交再打 tag
 - [x] README 用户化重构：开发说明迁移到 `docs/`，README 聚焦功能与使用

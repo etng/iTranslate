@@ -67,7 +67,7 @@ make signer-sync-pubkey
 当前工作流：`.github/workflows/release.yml`
 
 - 触发条件：推送 `v*` tag
-- 当前默认平台：`macos-latest`（如需扩展可在 workflow 增加矩阵平台）
+- 当前默认平台：`macos-latest`、`ubuntu-22.04`、`windows-latest`
 - 产物：安装包 + `latest.json` + 签名
 
 示例：
