@@ -1,6 +1,6 @@
 [package]
 name = "itranslate"
-version = "0.2.3"
+version = "0.2.4"
 description = "iTranslate 桌面翻译工具"
 authors = ["iTranslate Team"]
 license = ""
