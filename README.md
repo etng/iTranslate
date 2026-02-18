@@ -69,3 +69,9 @@ Translation: {target_lang}:
 ```
 
 并附加 Markdown 保格式规则（仅用于请求，不会存储到历史正文）。
+
+## 文档目录
+
+- `docs/PRD.md`：产品需求文档
+- `docs/任务进展.md`：阶段进展记录
+- `docs/任务池.md`：任务拆分与勾选进度
