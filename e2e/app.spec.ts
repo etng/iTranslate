@@ -124,12 +124,16 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await page.getByRole("button", { name: "验证并进入" }).click();
   await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
 
+  const sourceLanguageSelect = page.locator('label:has-text("源语言") select');
   const inputArea = page.locator(".input-panel textarea");
+
+  await inputArea.fill("これは自動言語検出のための日本語テキストです。判定してください。");
+  await expect(sourceLanguageSelect).toHaveValue("Japanese");
 
   await inputArea.click();
   await inputArea.type("manual typing only");
   await page.waitForTimeout(900);
-  await expect(page.getByText("等待翻译")).toBeVisible();
+  await expect(page.getByRole("button", { name: "马上翻译" })).toBeEnabled();
 
   await page.getByRole("button", { name: "马上翻译" }).click();
   await expect(page.locator(".status-bar")).toContainText("翻译完成");
@@ -170,6 +174,9 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await expect(page.getByRole("heading", { name: "执行日志" })).toBeVisible();
   await expect(page.locator(".input-panel .line-gutter")).toBeVisible();
   await expect(page.locator(".result-panel .cm-lineNumbers")).toBeVisible();
+
+  await page.locator(".result-panel .cm-line").nth(12).click();
+  await expect(page.locator(".input-panel .line-gutter-line.active")).toHaveCount(1);
 
   const widthData = await page.evaluate(() => {
     const panels = document.querySelector(".panels");

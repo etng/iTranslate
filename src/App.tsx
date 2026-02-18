@@ -47,10 +47,12 @@ import { checkForUpdatesByMenu } from "./services/updateService";
 import { isTauriRuntime } from "./utils/runtime";
 import { historySeedEntries } from "./seeds/historySeed";
 import { EngineManager } from "./components/EngineManager";
+import { detectSourceLanguage } from "./services/languageDetect";
 import "./App.css";
 
 const SETUP_KEY = "itranslate.setup.done";
 const AUTO_TRANSLATE_DEBOUNCE_MS = 650;
+const AUTO_DETECT_LANGUAGE_DEBOUNCE_MS = 280;
 const HISTORY_SEED_APPLIED_KEY = "itranslate.history.seed.applied.v1";
 
 type TranslateTrigger = "manual" | "paste";
@@ -111,9 +113,11 @@ function App() {
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
 
   const [runtimeLogs, setRuntimeLogs] = useState<RuntimeLog[]>([]);
+  const [linkedLine, setLinkedLine] = useState<number | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
+  const autoDetectTimerRef = useRef<number | null>(null);
   const translatingRef = useRef(false);
   const shortcutPasteRef = useRef(false);
   const applyLeftScrollRatioRef = useRef<(ratio: number) => void>(() => {});
@@ -139,6 +143,9 @@ function App() {
     return () => {
       if (autoTranslateTimerRef.current) {
         window.clearTimeout(autoTranslateTimerRef.current);
+      }
+      if (autoDetectTimerRef.current) {
+        window.clearTimeout(autoDetectTimerRef.current);
       }
     };
   }, []);
@@ -319,8 +326,28 @@ function App() {
     [executeTranslate],
   );
 
+  const scheduleDetectSourceLanguage = useCallback((text: string) => {
+    if (autoDetectTimerRef.current) {
+      window.clearTimeout(autoDetectTimerRef.current);
+    }
+    autoDetectTimerRef.current = window.setTimeout(() => {
+      const detected = detectSourceLanguage(text);
+      if (!detected || detected === sourceLanguage) {
+        return;
+      }
+      setSourceLanguage(detected);
+      setStatusText(`已自动识别源语言：${detected}`);
+      appendLog("INFO", `自动识别源语言并切换：${detected}`);
+    }, AUTO_DETECT_LANGUAGE_DEBOUNCE_MS);
+  }, [appendLog, sourceLanguage]);
+
   const handleTranslateClick = () => {
     void executeTranslate(inputText, "manual");
+  };
+
+  const handleInputChange = (value: string) => {
+    setInputText(value);
+    scheduleDetectSourceLanguage(value);
   };
 
   const handleEnterApp = (config: TranslatorModelConfig) => {
@@ -363,6 +390,7 @@ function App() {
     const nextValue = `${inputText.slice(0, selectionStart)}${insertText}${inputText.slice(selectionEnd)}`;
 
     setInputText(nextValue);
+    scheduleDetectSourceLanguage(nextValue);
     setStatusText(
       fromShortcut && htmlText.trim().length > 0
         ? "已将 HTML 转换为 Markdown 后粘贴，稍后自动翻译"
@@ -486,9 +514,10 @@ function App() {
                 textareaRef={inputRef}
                 placeholder="支持粘贴普通文本或 HTML。快捷键粘贴会自动识别 HTML 并转 Markdown"
                 value={inputText}
-                onChange={setInputText}
+                onChange={handleInputChange}
                 onKeyDown={handleInputKeyDown}
                 onPaste={handlePaste}
+                highlightedLine={linkedLine}
                 onScrollRatioChange={(ratio) => applyRightScrollRatioRef.current(ratio)}
                 registerApplyScrollRatio={(apply) => {
                   applyLeftScrollRatioRef.current = apply;
@@ -504,6 +533,7 @@ function App() {
               registerApplyScrollRatio={(apply) => {
                 applyRightScrollRatioRef.current = apply;
               }}
+              onSelectLine={setLinkedLine}
             />
           </section>
 
