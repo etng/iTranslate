@@ -77,7 +77,7 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
   let endpoint = format!("{}/api/generate", payload.endpoint.trim_end_matches('/'));
 
   let mut request = client
-    .post(endpoint);
+    .post(&endpoint);
 
   if let Some(token) = &payload.api_token {
     if !token.is_empty() {
