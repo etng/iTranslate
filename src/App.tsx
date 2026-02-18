@@ -30,6 +30,7 @@ import { translateWithModel } from "./services/translation";
 import {
   createAutoTitle,
   deleteHistoryById,
+  ensureHistoryMigratedFromLocalStorage,
   loadHistory,
   renameHistoryTitle,
   replaceHistory,
@@ -132,7 +133,7 @@ function App() {
   const [translating, setTranslating] = useState(false);
   const [statusText, setStatusText] = useState("等待翻译");
 
-  const [history, setHistory] = useState<TranslationHistoryItem[]>(() => loadHistory());
+  const [history, setHistory] = useState<TranslationHistoryItem[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [screen, setScreen] = useState<"translator" | "history" | "historyDetail" | "engines" | "preferences">("translator");
   const [selectedHistory, setSelectedHistory] = useState<TranslationHistoryItem | null>(null);
@@ -183,6 +184,10 @@ function App() {
       },
       ...prev,
     ].slice(0, 120));
+  }, []);
+
+  const refreshHistory = useCallback(async () => {
+    setHistory(await loadHistory());
   }, []);
 
   const clampDockHeight = useCallback((value: number) => {
@@ -270,6 +275,13 @@ function App() {
   }, [preferences]);
 
   useEffect(() => {
+    void (async () => {
+      await ensureHistoryMigratedFromLocalStorage();
+      await refreshHistory();
+    })();
+  }, [refreshHistory]);
+
+  useEffect(() => {
     if (!setupDone) {
       return;
     }
@@ -286,12 +298,14 @@ function App() {
       return;
     }
 
-    saveHistory(historySeedEntries);
-    setHistory(loadHistory());
-    localStorage.setItem(HISTORY_SEED_APPLIED_KEY, "1");
-    setStatusText(`已注入分页 seed，共 ${historySeedEntries.length} 条记录`);
-    appendLog("INFO", `已注入分页 seed：${historySeedEntries.length} 条`);
-  }, [appendLog, setupDone]);
+    void (async () => {
+      await saveHistory(historySeedEntries);
+      await refreshHistory();
+      localStorage.setItem(HISTORY_SEED_APPLIED_KEY, "1");
+      setStatusText(`已注入分页 seed，共 ${historySeedEntries.length} 条记录`);
+      appendLog("INFO", `已注入分页 seed：${historySeedEntries.length} 条`);
+    })();
+  }, [appendLog, refreshHistory, setupDone]);
 
   useEffect(() => {
     if (!isTauriRuntime()) {
@@ -410,7 +424,7 @@ function App() {
             outputMarkdown: result.outputMarkdown,
             engine: selectedEngine,
           });
-          const next = replaceHistory(replacedItem);
+          const next = await replaceHistory(replacedItem);
           setHistory(next);
           setStatusText("翻译完成，已更新当前历史记录");
           appendLog("INFO", `已更新历史记录：${replacedItem.title}`);
@@ -425,7 +439,7 @@ function App() {
             outputMarkdown: result.outputMarkdown,
             engine: selectedEngine,
           });
-          const next = upsertHistory(historyItem);
+          const next = await upsertHistory(historyItem);
           setHistory(next);
           setStatusText(preprocessed.detectedHtml ? "翻译完成（输入已先转换为 Markdown）" : "翻译完成");
           appendLog("INFO", `翻译完成并写入历史：${historyItem.title}`);
@@ -687,7 +701,7 @@ function App() {
           modelConfig: engine,
         });
 
-        translatedItems.push(createHistoryItem({
+        const historyItem = createHistoryItem({
           title: buildEpubHistoryTitle(imported.fileNameBase, chapter.fileName),
           sourceLanguage: payload.sourceLanguage,
           targetLanguage: payload.targetLanguage,
@@ -695,15 +709,10 @@ function App() {
           inputMarkdown: chapter.markdown,
           outputMarkdown: result.outputMarkdown,
           engine,
-        }));
+        });
+        translatedItems.push(historyItem);
+        setHistory(await upsertHistory(historyItem));
       }
-
-      const merged = [
-        ...translatedItems,
-        ...loadHistory(),
-      ];
-      saveHistory(merged);
-      setHistory(loadHistory());
 
       setEpubPipelineProgress({
         current: translatedItems.length,
@@ -729,6 +738,7 @@ function App() {
       const message = error instanceof Error ? error.message : "未知错误";
       setStatusText(`EPUB 闭环翻译失败：${message}`);
       appendLog("ERROR", `EPUB 闭环翻译失败：${message}`);
+      window.alert(`EPUB 闭环翻译失败：${message}`);
     } finally {
       setEpubPipelineRunning(false);
     }
@@ -917,12 +927,16 @@ function App() {
               appendLog("INFO", `打开历史详情：${item.title}`);
             }}
             onRenameTitle={(id, title) => {
-              setHistory(renameHistoryTitle(id, title));
-              appendLog("INFO", `更新历史标题：${title}`);
+              void (async () => {
+                setHistory(await renameHistoryTitle(id, title));
+                appendLog("INFO", `更新历史标题：${title}`);
+              })();
             }}
             onDelete={(id) => {
-              setHistory(deleteHistoryById(id));
-              appendLog("WARN", `删除历史记录：${id}`);
+              void (async () => {
+                setHistory(await deleteHistoryById(id));
+                appendLog("WARN", `删除历史记录：${id}`);
+              })();
             }}
             onToast={setToastMessage}
             defaultEpubAuthor={preferences.epubDefaultAuthor}
