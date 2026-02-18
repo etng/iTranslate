@@ -45,6 +45,18 @@ make check        # lint + 单测 + cargo check
 make setup-e2e    # 安装 Playwright Chromium
 make seed-history # 生成分页演示 seed（下次启动自动注入一次）
 make bump-version PART=patch  # 升级版本并创建对应 git tag
+make release PART=patch       # 升级版本并推送 tag（触发自动发版）
+make signer-generate      # 生成 Tauri updater 密钥对
+make signer-copy-private  # 复制私钥到剪贴板（GitHub Secret）
+make signer-copy-public   # 复制公钥到剪贴板
+make signer-copy-password # 复制私钥密码到剪贴板
+make signer-sync-pubkey   # 同步公钥到 tauri.conf.json
+```
+
+清理本地 Tauri 构建缓存（释放磁盘）：
+
+```bash
+cargo clean --manifest-path src-tauri/Cargo.toml
 ```
 
 ## 测试命令
@@ -69,6 +81,26 @@ cargo check --manifest-path src-tauri/Cargo.toml
 - `src-tauri/tauri.conf.json` 的 `plugins.updater.endpoints`
 - `src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey`
 
+## GitHub Actions 自动发版
+
+已提供工作流：`.github/workflows/release.yml`
+
+- 触发条件：推送 `v*` tag（例如 `v0.1.2`）
+- 自动行为：构建多平台安装包、创建/更新 GitHub Release、上传安装包与 `latest.json`/签名
+
+首次启用前需要在仓库 `Settings -> Secrets and variables -> Actions` 配置：
+
+- `TAURI_SIGNING_PRIVATE_KEY`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+
+建议发版流程：
+
+1. `make release PART=patch`（或 `minor` / `major`）
+2. 在 GitHub 的 `Actions` 查看 `发布桌面应用` 工作流
+3. 在 `Releases` 页面确认产物与 `latest.json`
+
+签名与自动发版详细操作见：`docs/signing-and-release.md`
+
 ## translategemma Prompt 说明
 
 调用时会在原文前拼接官方格式前缀：
@@ -84,5 +116,6 @@ Translation: {target_lang}:
 ## 文档目录
 
 - `docs/PRD.md`：产品需求文档
-- `docs/任务进展.md`：阶段进展记录
-- `docs/任务池.md`：任务拆分与勾选进度
+- `docs/task-progress.md`：阶段进展记录
+- `docs/task-pool.md`：任务拆分与勾选进度
+- `docs/signing-and-release.md`：密钥生成、Secrets 配置与自动发版步骤
