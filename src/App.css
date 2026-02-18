@@ -14,6 +14,23 @@
   overflow: hidden;
 }
 
+.main-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.translator-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
 .top-nav {
   display: flex;
   align-items: center;
@@ -222,6 +239,16 @@ textarea {
   overflow: hidden;
 }
 
+.result-panel .result-codemirror,
+.result-panel .cm-theme,
+.result-panel .cm-editor,
+.result-panel .cm-scroller,
+.result-panel .cm-content,
+.result-panel .cm-gutters {
+  height: 100%;
+  min-height: 0;
+}
+
 .switches {
   display: flex;
   gap: 8px;
@@ -327,12 +354,29 @@ textarea {
 .bottom-dock {
   flex: 0 0 auto;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: 8px auto minmax(0, 1fr);
   gap: 6px;
+  overflow: hidden;
 }
 
 .bottom-dock.collapsed {
   grid-template-rows: auto;
+}
+
+.dock-resizer {
+  height: 8px;
+  border-radius: 6px;
+  cursor: ns-resize;
+  background: repeating-linear-gradient(
+    90deg,
+    #cbd5e1 0 4px,
+    transparent 4px 8px
+  );
+  opacity: 0.7;
+}
+
+.dock-resizer:hover {
+  opacity: 1;
 }
 
 .bottom-dock-header {
@@ -505,5 +549,9 @@ textarea {
 
   .history-footer {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bottom-dock {
+    height: auto !important;
   }
 }

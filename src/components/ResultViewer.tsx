@@ -125,6 +125,7 @@ export function ResultViewer({
 
       {viewMode === "markdown" ? (
         <CodeMirror
+          className="result-codemirror"
           value={markdownText}
           editable={false}
           theme={githubLight}

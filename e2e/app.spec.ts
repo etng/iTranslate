@@ -91,6 +91,22 @@ test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => 
   await page.getByRole("button", { name: "验证并进入" }).click();
   await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
   await page.getByRole("button", { name: "展开底部面板" }).click();
+  const dockResize = await page.evaluate(async () => {
+    const dock = document.querySelector(".bottom-dock") as HTMLElement | null;
+    const handle = document.querySelector(".dock-resizer") as HTMLElement | null;
+    if (!dock || !handle) {
+      return { ok: false, before: 0, after: 0 };
+    }
+    const before = dock.getBoundingClientRect().height;
+    handle.dispatchEvent(new MouseEvent("mousedown", { clientY: 420, bubbles: true }));
+    window.dispatchEvent(new MouseEvent("mousemove", { clientY: 360, bubbles: true }));
+    window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    const after = dock.getBoundingClientRect().height;
+    return { ok: true, before, after };
+  });
+  expect(dockResize.ok).toBe(true);
+  expect(dockResize.after).toBeGreaterThan(dockResize.before);
 
   for (const chapter of chapters) {
     await page

@@ -5,6 +5,7 @@ import {
   useState,
   type ClipboardEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ChevronDown, ChevronUp, FileText, History, Info, Languages, Play, Server, Settings } from "lucide-react";
@@ -125,6 +126,7 @@ function App() {
   const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
   const [bottomTab, setBottomTab] = useState<"status" | "log">("status");
   const [bottomCollapsed, setBottomCollapsed] = useState(true);
+  const [bottomHeight, setBottomHeight] = useState(180);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -134,6 +136,7 @@ function App() {
   const shortcutPasteRef = useRef(false);
   const applyLeftScrollRatioRef = useRef<(ratio: number) => void>(() => {});
   const applyRightScrollRatioRef = useRef<(ratio: number) => void>(() => {});
+  const dockDragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const appendLog = useCallback((level: LogLevel, message: string) => {
     setRuntimeLogs((prev) => [
@@ -146,6 +149,40 @@ function App() {
       ...prev,
     ].slice(0, 120));
   }, []);
+
+  const clampDockHeight = useCallback((value: number) => {
+    const max = Math.min(window.innerHeight * 0.5, 420);
+    return Math.min(Math.max(value, 92), max);
+  }, []);
+
+  const handleDockResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (bottomCollapsed) {
+      return;
+    }
+    event.preventDefault();
+    dockDragStateRef.current = {
+      startY: event.clientY,
+      startHeight: bottomHeight,
+    };
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const state = dockDragStateRef.current;
+      if (!state) {
+        return;
+      }
+      const delta = state.startY - moveEvent.clientY;
+      setBottomHeight(clampDockHeight(state.startHeight + delta));
+    };
+
+    const onMouseUp = () => {
+      dockDragStateRef.current = null;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 
   useEffect(() => {
     if (!toastMessage) {
@@ -288,7 +325,12 @@ function App() {
 
       setTranslating(true);
       setStatusText(trigger === "paste" ? "检测到粘贴，自动翻译中..." : "处理中...");
-      appendLog("INFO", `${trigger === "paste" ? "触发粘贴防抖翻译" : "触发手动翻译"}（引擎：${selectedEngine.name}）`);
+      const requestId = crypto.randomUUID().slice(0, 8);
+      const startAt = performance.now();
+      appendLog(
+        "INFO",
+        `[${requestId}] ${trigger === "paste" ? "触发粘贴防抖翻译" : "触发手动翻译"} 引擎=${selectedEngine.name} 模型=${selectedEngine.model} 地址=${selectedEngine.endpoint}`,
+      );
 
       try {
         const preprocessed = preprocessInput(rawInput);
@@ -317,6 +359,7 @@ function App() {
           setHistory(next);
           setStatusText("翻译完成，已更新当前历史记录");
           appendLog("INFO", `已更新历史记录：${replacedItem.title}`);
+          appendLog("INFO", `[${requestId}] 请求完成，耗时 ${Math.round(performance.now() - startAt)}ms`);
         } else {
           const historyItem = createHistoryItem({
             sourceLanguage,
@@ -330,11 +373,13 @@ function App() {
           setHistory(next);
           setStatusText(preprocessed.detectedHtml ? "翻译完成（输入已先转换为 Markdown）" : "翻译完成");
           appendLog("INFO", `翻译完成并写入历史：${historyItem.title}`);
+          appendLog("INFO", `[${requestId}] 请求完成，耗时 ${Math.round(performance.now() - startAt)}ms`);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "未知错误";
         setStatusText(`翻译失败：${message}`);
         appendLog("ERROR", `翻译失败：${message}`);
+        appendLog("ERROR", `[${requestId}] 请求失败，耗时 ${Math.round(performance.now() - startAt)}ms`);
       } finally {
         setTranslating(false);
       }
@@ -507,8 +552,9 @@ function App() {
         </header>
       ) : null}
 
-      {screen === "translator" ? (
-        <>
+      <section className="main-content">
+        {screen === "translator" ? (
+          <div className="translator-view">
           <section className="lang-row compact-row three-cols">
             <label>
               源语言
@@ -592,75 +638,87 @@ function App() {
           {availableEngines.length === 0 ? (
             <section className="hint-banner">当前没有可用引擎，请先到“翻译引擎”页面新增并检测。</section>
           ) : null}
-        </>
-      ) : null}
+          </div>
+        ) : null}
 
-      {screen === "history" ? (
-        <HistoryList
-          items={history}
-          currentPage={historyPage}
-          pageSize={HISTORY_PAGE_SIZE}
-          onChangePage={setHistoryPage}
-          onOpenDetail={(item) => {
-            setSelectedHistory(item);
-            setScreen("historyDetail");
-            appendLog("INFO", `打开历史详情：${item.title}`);
-          }}
-          onRenameTitle={(id, title) => {
-            setHistory(renameHistoryTitle(id, title));
-            appendLog("INFO", `更新历史标题：${title}`);
-          }}
-          onDelete={(id) => {
-            setHistory(deleteHistoryById(id));
-            appendLog("WARN", `删除历史记录：${id}`);
-          }}
-          onToast={setToastMessage}
-          defaultEpubAuthor={preferences.epubDefaultAuthor}
-          defaultEpubDir={preferences.epubDefaultExportDir}
-          onChangeDefaultEpubAuthor={(author) => setPreferences((prev) => ({ ...prev, epubDefaultAuthor: author }))}
-          onChangeDefaultEpubDir={(dir) => setPreferences((prev) => ({ ...prev, epubDefaultExportDir: dir }))}
-        />
-      ) : null}
+        {screen === "history" ? (
+          <HistoryList
+            items={history}
+            currentPage={historyPage}
+            pageSize={HISTORY_PAGE_SIZE}
+            onChangePage={setHistoryPage}
+            onOpenDetail={(item) => {
+              setSelectedHistory(item);
+              setScreen("historyDetail");
+              appendLog("INFO", `打开历史详情：${item.title}`);
+            }}
+            onRenameTitle={(id, title) => {
+              setHistory(renameHistoryTitle(id, title));
+              appendLog("INFO", `更新历史标题：${title}`);
+            }}
+            onDelete={(id) => {
+              setHistory(deleteHistoryById(id));
+              appendLog("WARN", `删除历史记录：${id}`);
+            }}
+            onToast={setToastMessage}
+            defaultEpubAuthor={preferences.epubDefaultAuthor}
+            defaultEpubDir={preferences.epubDefaultExportDir}
+            onChangeDefaultEpubAuthor={(author) => setPreferences((prev) => ({ ...prev, epubDefaultAuthor: author }))}
+            onChangeDefaultEpubDir={(dir) => setPreferences((prev) => ({ ...prev, epubDefaultExportDir: dir }))}
+          />
+        ) : null}
 
-      {screen === "historyDetail" && selectedHistory ? (
-        <HistoryDetail
-          item={selectedHistory}
-          languages={LANGUAGE_OPTIONS}
-          viewMode={resultViewMode}
-          onChangeViewMode={setResultViewMode}
-          onBack={() => {
-            setScreen("history");
-            appendLog("INFO", "返回历史列表");
-          }}
-          onEdit={() => {
-            setScreen("translator");
-            setEditingHistoryId(selectedHistory.id);
-            setInputText(selectedHistory.inputRaw);
-            setOutputMarkdown(selectedHistory.outputMarkdown);
-            setSourceLanguage(selectedHistory.sourceLanguage);
-            setTargetLanguage(selectedHistory.targetLanguage);
-            setSelectedEngineId(selectedHistory.engineDeleted ? null : selectedHistory.engineId);
-            appendLog("INFO", `进入历史记录编辑模式：${selectedHistory.title}`);
-          }}
-        />
-      ) : null}
+        {screen === "historyDetail" && selectedHistory ? (
+          <HistoryDetail
+            item={selectedHistory}
+            languages={LANGUAGE_OPTIONS}
+            viewMode={resultViewMode}
+            onChangeViewMode={setResultViewMode}
+            onBack={() => {
+              setScreen("history");
+              appendLog("INFO", "返回历史列表");
+            }}
+            onEdit={() => {
+              setScreen("translator");
+              setEditingHistoryId(selectedHistory.id);
+              setInputText(selectedHistory.inputRaw);
+              setOutputMarkdown(selectedHistory.outputMarkdown);
+              setSourceLanguage(selectedHistory.sourceLanguage);
+              setTargetLanguage(selectedHistory.targetLanguage);
+              setSelectedEngineId(selectedHistory.engineDeleted ? null : selectedHistory.engineId);
+              appendLog("INFO", `进入历史记录编辑模式：${selectedHistory.title}`);
+            }}
+          />
+        ) : null}
 
-      {screen === "engines" ? (
-        <EngineManager
-          state={engineState}
-          onChange={setEngineState}
-          onLog={appendLog}
-        />
-      ) : null}
+        {screen === "engines" ? (
+          <EngineManager
+            state={engineState}
+            onChange={setEngineState}
+            onLog={appendLog}
+          />
+        ) : null}
 
-      {screen === "preferences" ? (
-        <PreferencesPanel
-          value={preferences}
-          onChange={setPreferences}
-        />
-      ) : null}
+        {screen === "preferences" ? (
+          <PreferencesPanel
+            value={preferences}
+            onChange={setPreferences}
+          />
+        ) : null}
+      </section>
 
-      <section className={`bottom-dock ${bottomCollapsed ? "collapsed" : ""}`}>
+      <section
+        className={`bottom-dock ${bottomCollapsed ? "collapsed" : ""}`}
+        style={!bottomCollapsed ? { height: `${bottomHeight}px` } : undefined}
+      >
+        {!bottomCollapsed ? (
+          <div
+            className="dock-resizer"
+            title="拖拽调整底部高度"
+            aria-label="拖拽调整底部高度"
+            onMouseDown={handleDockResizeStart}
+          />
+        ) : null}
         <header className="bottom-dock-header">
           <div className="switches">
             <button
