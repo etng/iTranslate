@@ -1,6 +1,6 @@
 import { check } from "@tauri-apps/plugin-updater";
 import { confirm, message } from "@tauri-apps/plugin-dialog";
-import { APP_BUILD_NUMBER, UPDATE_METADATA_URL } from "../constants/languages";
+import { APP_BUILD_NUMBER, APP_SEMVER, UPDATE_METADATA_URL } from "../constants/languages";
 import type { UpdateMetadata } from "../types";
 import { isTauriRuntime } from "../utils/runtime";
 
@@ -20,8 +20,7 @@ function hasNewerBuild(current: string, remote: string): boolean {
 }
 
 function getCurrentVersionWithBuild(): string {
-  const baseVersion = "0.1.0";
-  return `${baseVersion}.${APP_BUILD_NUMBER}`;
+  return `${APP_SEMVER}.${APP_BUILD_NUMBER}`;
 }
 
 async function fetchLatestMetadata(): Promise<UpdateMetadata> {
