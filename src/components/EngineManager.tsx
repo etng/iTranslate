@@ -21,6 +21,7 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
   const [keyword, setKeyword] = useState("");
   const [providerFilter, setProviderFilter] = useState<"" | TranslatorModelConfig["provider"]>("");
   const [statusFilter, setStatusFilter] = useState<"" | "available" | "paused" | "deleted">("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const available = useMemo(() => getAvailableEngines(state.engines), [state.engines]);
   const filteredEngines = useMemo(() => {
@@ -47,6 +48,15 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
       return text.includes(search);
     });
   }, [keyword, providerFilter, state.engines, statusFilter]);
+  const selectableFilteredIds = useMemo(() => {
+    return filteredEngines.filter((engine) => !engine.deletedAt).map((engine) => engine.id);
+  }, [filteredEngines]);
+  const validSelectedIds = useMemo(() => {
+    const idSet = new Set(state.engines.map((engine) => engine.id));
+    return selectedIds.filter((id) => idSet.has(id));
+  }, [selectedIds, state.engines]);
+  const allSelected = selectableFilteredIds.length > 0
+    && selectableFilteredIds.every((id) => validSelectedIds.includes(id));
 
   const handleCreate = () => {
     const engine = createNewEngineTemplate();
@@ -143,6 +153,54 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
     onLog("INFO", `${engine.name} 已${engine.enabled ? "暂停" : "启用"}`);
   };
 
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]));
+  };
+
+  const handleSelectAllFiltered = () => {
+    if (allSelected) {
+      setSelectedIds(validSelectedIds.filter((id) => !selectableFilteredIds.includes(id)));
+      return;
+    }
+
+    setSelectedIds(() => {
+      const merged = new Set([...validSelectedIds, ...selectableFilteredIds]);
+      return Array.from(merged);
+    });
+  };
+
+  const handleBatchToggleEnable = (enabled: boolean) => {
+    if (validSelectedIds.length === 0) {
+      return;
+    }
+    const selectedSet = new Set(validSelectedIds);
+    const nextEngines = state.engines.map((engine) => {
+      if (!selectedSet.has(engine.id) || engine.deletedAt) {
+        return engine;
+      }
+      return { ...engine, enabled };
+    });
+    onChange({ ...state, engines: nextEngines });
+    onLog("INFO", `批量${enabled ? "启用" : "暂停"}引擎：${validSelectedIds.length} 个`);
+  };
+
+  const handleBatchDelete = () => {
+    if (validSelectedIds.length === 0) {
+      return;
+    }
+    const selectedSet = new Set(validSelectedIds);
+    const nextEngines = state.engines.map((engine) => {
+      if (!selectedSet.has(engine.id) || engine.deletedAt) {
+        return engine;
+      }
+      return { ...engine, enabled: false, deletedAt: new Date().toISOString() };
+    });
+    const nextDefault = selectedSet.has(state.defaultEngineId ?? "") ? null : state.defaultEngineId;
+    onChange({ engines: nextEngines, defaultEngineId: nextDefault });
+    setSelectedIds([]);
+    onLog("WARN", `批量删除引擎：${selectedSet.size} 个`);
+  };
+
   const handleValidate = async (engine: TranslatorModelConfig) => {
     if (engine.provider === "ollama") {
       const result = await checkOllamaHealth(engine.endpoint, engine.model);
@@ -159,6 +217,13 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
         <h2>翻译引擎</h2>
         <div className="nav-buttons">
           <button type="button" onClick={handleCreate}>新增引擎</button>
+          <button type="button" onClick={() => handleBatchToggleEnable(true)} disabled={validSelectedIds.length === 0}>
+            批量启用
+          </button>
+          <button type="button" onClick={() => handleBatchToggleEnable(false)} disabled={validSelectedIds.length === 0}>
+            批量暂停
+          </button>
+          <button type="button" onClick={handleBatchDelete} disabled={validSelectedIds.length === 0}>批量删除</button>
           <span>可用 {available.length} 个 / 筛选后 {filteredEngines.length} 个</span>
         </div>
       </header>
@@ -195,6 +260,14 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
         <table className="history-table">
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={handleSelectAllFiltered}
+                  aria-label="全选引擎"
+                />
+              </th>
               <th>名称</th>
               <th>提供方</th>
               <th>接口地址</th>
@@ -211,6 +284,15 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
 
               return (
                 <tr key={engine.id} className={deleted ? "row-deleted" : ""}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={validSelectedIds.includes(engine.id)}
+                      onChange={() => handleToggleSelect(engine.id)}
+                      disabled={deleted}
+                      aria-label={`选择引擎-${engine.name}`}
+                    />
+                  </td>
                   <td>
                     <input
                       value={row.name}
@@ -292,7 +374,7 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
             })}
             {filteredEngines.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty">没有符合条件的引擎</td>
+                <td colSpan={8} className="empty">没有符合条件的引擎</td>
               </tr>
             ) : null}
           </tbody>
