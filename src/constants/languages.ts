@@ -19,8 +19,8 @@ export const DEFAULT_MODEL_CONFIG: TranslatorModelConfig = {
   id: "ollama-translategemma",
   provider: "ollama",
   label: "Ollama / translategemma",
-  endpoint: "http://127.0.0.1:11434",
-  model: "translategemma",
+  endpoint: import.meta.env.VITE_OLLAMA_ENDPOINT ?? "http://127.0.0.1:11434",
+  model: import.meta.env.VITE_OLLAMA_MODEL ?? "translategemma",
   enabled: true,
 };
 
