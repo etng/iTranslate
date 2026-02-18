@@ -90,6 +90,7 @@ test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => 
   await expect(page.getByText("iTranslate 初始化向导")).toBeVisible();
   await page.getByRole("button", { name: "验证并进入" }).click();
   await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
+  await page.getByRole("button", { name: "展开底部面板" }).click();
 
   for (const chapter of chapters) {
     await page
@@ -123,6 +124,7 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await page.goto("/");
   await page.getByRole("button", { name: "验证并进入" }).click();
   await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
+  await page.getByRole("button", { name: "展开底部面板" }).click();
 
   const sourceLanguageSelect = page.locator('label:has-text("源语言") select');
   const inputArea = page.locator(".input-panel textarea");
@@ -171,8 +173,8 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await expect(page.getByText("已将 HTML 转换为 Markdown 后粘贴，稍后自动翻译")).toBeVisible();
   await expect(page.locator(".status-bar")).toContainText("翻译完成");
   await expect(page.locator(".status-bar .status-cell")).toHaveCount(3);
-  await page.getByRole("button", { name: "日志" }).click();
-  await expect(page.getByRole("heading", { name: "执行日志" })).toBeVisible();
+  await page.getByRole("button", { name: "执行日志" }).click();
+  await expect(page.locator(".log-table")).toBeVisible();
   await page.getByRole("button", { name: "状态" }).click();
   await expect(page.locator(".input-panel .line-gutter")).toBeVisible();
   await expect(page.locator(".result-panel .cm-lineNumbers")).toBeVisible();

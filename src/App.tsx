@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { History, Languages, Play, Server } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, History, Info, Languages, Play, Server } from "lucide-react";
 import {
   APP_BUILD_NUMBER,
   APP_SEMVER,
@@ -120,7 +120,7 @@ function App() {
   const [runtimeLogs, setRuntimeLogs] = useState<RuntimeLog[]>([]);
   const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
   const [bottomTab, setBottomTab] = useState<"status" | "log">("status");
-  const [bottomCollapsed, setBottomCollapsed] = useState(false);
+  const [bottomCollapsed, setBottomCollapsed] = useState(true);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
@@ -448,27 +448,30 @@ function App() {
           <div className="nav-buttons">
             <button
               type="button"
-              className={`icon-btn ${screen === "translator" ? "active" : ""}`}
+              title="翻译"
+              aria-label="翻译"
+              className={`icon-btn icon-only ${screen === "translator" ? "active" : ""}`}
               onClick={() => setScreen("translator")}
             >
               <Languages size={16} />
-              <span>翻译</span>
             </button>
             <button
               type="button"
-              className={`icon-btn ${screen === "history" ? "active" : ""}`}
+              title="历史记录"
+              aria-label="历史记录"
+              className={`icon-btn icon-only ${screen === "history" ? "active" : ""}`}
               onClick={() => setScreen("history")}
             >
               <History size={16} />
-              <span>历史记录</span>
             </button>
             <button
               type="button"
-              className={`icon-btn ${screen === "engines" ? "active" : ""}`}
+              title="翻译引擎"
+              aria-label="翻译引擎"
+              className={`icon-btn icon-only ${screen === "engines" ? "active" : ""}`}
               onClick={() => setScreen("engines")}
             >
               <Server size={16} />
-              <span>翻译引擎</span>
             </button>
           </div>
         </header>
@@ -620,21 +623,31 @@ function App() {
           <div className="switches">
             <button
               type="button"
-              className={bottomTab === "status" ? "active" : ""}
+              title="状态"
+              aria-label="状态"
+              className={`icon-btn icon-only ${bottomTab === "status" ? "active" : ""}`}
               onClick={() => setBottomTab("status")}
             >
-              状态
+              <Info size={16} />
             </button>
             <button
               type="button"
-              className={bottomTab === "log" ? "active" : ""}
+              title="执行日志"
+              aria-label="执行日志"
+              className={`icon-btn icon-only ${bottomTab === "log" ? "active" : ""}`}
               onClick={() => setBottomTab("log")}
             >
-              日志
+              <FileText size={16} />
             </button>
           </div>
-          <button type="button" onClick={() => setBottomCollapsed((value) => !value)}>
-            {bottomCollapsed ? "展开" : "折叠"}
+          <button
+            type="button"
+            title={bottomCollapsed ? "展开底部面板" : "折叠底部面板"}
+            aria-label={bottomCollapsed ? "展开底部面板" : "折叠底部面板"}
+            className="icon-btn icon-only"
+            onClick={() => setBottomCollapsed((value) => !value)}
+          >
+            {bottomCollapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </header>
 
@@ -660,19 +673,17 @@ function App() {
             </div>
           ) : (
             <section className="log-panel" aria-label="执行日志">
-              <header>
-                <h3>执行日志</h3>
-                <span>{runtimeLogs.length} 条</span>
-              </header>
-              <ul>
-                {runtimeLogs.map((log) => (
-                  <li key={log.id} className={`log-item ${log.level.toLowerCase()}`}>
-                    <span className="time">{log.time}</span>
-                    <span className="level">{log.level}</span>
-                    <span className="message">{log.message}</span>
-                  </li>
-                ))}
-              </ul>
+              <table className="log-table">
+                <tbody>
+                  {runtimeLogs.map((log) => (
+                    <tr key={log.id} className={`log-item ${log.level.toLowerCase()}`}>
+                      <td className="time">{log.time}</td>
+                      <td className="level">{log.level}</td>
+                      <td className="message">{log.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </section>
           )
         ) : null}

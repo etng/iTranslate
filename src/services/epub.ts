@@ -25,9 +25,32 @@ function xmlEscape(text: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function normalizeXhtmlEntities(html: string): string {
+  const reserved = new Set(["amp", "lt", "gt", "quot", "apos"]);
+  return html.replace(/&([a-zA-Z][a-zA-Z0-9]+);/g, (full, name: string) => {
+    if (reserved.has(name)) {
+      return full;
+    }
+
+    if (typeof document !== "undefined") {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = full;
+      const decoded = textarea.value;
+      if (decoded && decoded !== full) {
+        return decoded;
+      }
+    }
+
+    if (name === "nbsp") {
+      return "&#160;";
+    }
+    return full;
+  });
+}
+
 function createChapterXhtml(chapter: EpubChapter): string {
-  const sourceHtml = renderMarkdownToHtml(chapter.sourceMarkdown);
-  const targetHtml = renderMarkdownToHtml(chapter.targetMarkdown);
+  const sourceHtml = normalizeXhtmlEntities(renderMarkdownToHtml(chapter.sourceMarkdown));
+  const targetHtml = normalizeXhtmlEntities(renderMarkdownToHtml(chapter.targetMarkdown));
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN">

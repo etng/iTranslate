@@ -65,6 +65,13 @@ button:disabled,
   color: #ffffff;
 }
 
+.icon-only {
+  padding: 5px;
+  width: 30px;
+  height: 30px;
+  justify-content: center;
+}
+
 .lang-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -157,6 +164,7 @@ textarea {
 .history-detail {
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .panels > *,
@@ -182,7 +190,7 @@ textarea {
 
 .fill-panel {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -201,6 +209,10 @@ textarea {
   height: 100%;
   resize: none;
   overflow-y: auto;
+}
+
+.input-panel {
+  overflow: hidden;
 }
 
 .result-panel {
@@ -357,24 +369,29 @@ textarea {
 
 .log-panel {
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 8px;
+  display: block;
   padding: 0;
   border: 0;
 }
 
-.log-panel header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
 }
 
-.log-panel ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.log-table tbody {
+  display: block;
+  max-height: 160px;
   overflow-y: auto;
+}
+
+.log-table tr {
+  display: grid;
+  grid-template-columns: 72px 56px minmax(0, 1fr);
+  gap: 8px;
+  border-bottom: 1px dashed #e2e8f0;
+  padding: 5px 0;
 }
 
 .hint-banner {
@@ -387,11 +404,6 @@ textarea {
 }
 
 .log-item {
-  display: grid;
-  grid-template-columns: 64px 52px 1fr;
-  gap: 8px;
-  border-bottom: 1px dashed #e2e8f0;
-  padding: 5px 0;
   font-size: 12px;
 }
 
