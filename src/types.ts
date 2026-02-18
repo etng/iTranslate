@@ -9,9 +9,14 @@ export interface TranslatorModelConfig {
   id: string;
   provider: TranslateProvider;
   label: string;
+  name: string;
   endpoint: string;
   model: string;
+  apiToken?: string;
+  username?: string;
+  password?: string;
   enabled: boolean;
+  deletedAt?: string | null;
 }
 
 export interface TranslateRequest {
@@ -38,6 +43,9 @@ export interface TranslationHistoryItem {
   outputMarkdown: string;
   provider: TranslateProvider;
   model: string;
+  engineId: string;
+  engineName: string;
+  engineDeleted: boolean;
 }
 
 export interface OllamaHealthStatus {
@@ -52,4 +60,9 @@ export interface UpdateMetadata {
   buildNumber: number;
   notes?: string;
   downloadUrl?: string;
+}
+
+export interface EngineStoreState {
+  engines: TranslatorModelConfig[];
+  defaultEngineId: string | null;
 }

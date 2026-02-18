@@ -9,6 +9,9 @@ struct TranslatePayload {
   endpoint: String,
   model: String,
   prompt: String,
+  api_token: Option<String>,
+  username: Option<String>,
+  password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,8 +56,22 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
   let client = Client::new();
   let endpoint = format!("{}/api/generate", payload.endpoint.trim_end_matches('/'));
 
-  let response = client
-    .post(endpoint)
+  let mut request = client
+    .post(endpoint);
+
+  if let Some(token) = &payload.api_token {
+    if !token.is_empty() {
+      request = request.bearer_auth(token);
+    }
+  }
+
+  if let (Some(username), Some(password)) = (&payload.username, &payload.password) {
+    if !username.is_empty() || !password.is_empty() {
+      request = request.basic_auth(username, Some(password));
+    }
+  }
+
+  let response = request
     .json(&serde_json::json!({
       "model": payload.model,
       "prompt": payload.prompt,

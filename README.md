@@ -43,6 +43,7 @@ make run-web      # 仅启动 Web 服务
 make run-desktop  # 仅启动桌面入口
 make check        # lint + 单测 + cargo check
 make setup-e2e    # 安装 Playwright Chromium
+make seed-history # 生成分页演示 seed（下次启动自动注入一次）
 ```
 
 ## 测试命令

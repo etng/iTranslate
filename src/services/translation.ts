@@ -6,6 +6,9 @@ interface TranslateCommandPayload {
   endpoint: string;
   model: string;
   prompt: string;
+  apiToken?: string;
+  username?: string;
+  password?: string;
 }
 
 interface TranslateCommandResult {
@@ -85,6 +88,9 @@ export async function translateWithModel(request: TranslateRequest): Promise<Tra
       endpoint: request.modelConfig.endpoint,
       model: request.modelConfig.model,
       prompt,
+      apiToken: request.modelConfig.apiToken,
+      username: request.modelConfig.username,
+      password: request.modelConfig.password,
     } satisfies TranslateCommandPayload,
   });
 
