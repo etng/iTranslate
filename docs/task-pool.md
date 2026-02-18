@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- [x] README 全量同步更新：按当前 0.2.x 实现刷新功能、命令、发布与排障说明
 - [x] 修复 CI 发版阻塞：tauri-action 参数更正 + bundle identifier 改为唯一值
 - [x] 修复 `make release` 写死 `main` 分支导致 push 失败的问题（改为自动识别当前分支）
 - [x] docs 目录文件名英文化（`task-pool.md` / `task-progress.md` / `signing-and-release.md`）
