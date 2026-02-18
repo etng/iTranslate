@@ -336,12 +336,12 @@ test("翻译引擎保存前做必填校验", async ({ page }) => {
   await expect(row.locator(".field-error")).toContainText("接口地址");
   await expect(row.locator(".field-error")).toContainText("模型");
 
-  await row.locator("td:nth-child(4) input").fill("translategemma");
-  await row.locator("td:nth-child(3) input").fill("not-a-url");
+  await row.locator("td:nth-child(5) input").fill("translategemma");
+  await row.locator("td:nth-child(4) input").fill("not-a-url");
   await row.getByRole("button", { name: "保存" }).click();
   await expect(row.locator(".field-error")).toContainText("有效 URL");
 
-  await row.locator("td:nth-child(3) input").fill("http://127.0.0.1:11434");
+  await row.locator("td:nth-child(4) input").fill("http://127.0.0.1:11434");
   await row.getByRole("button", { name: "保存" }).click();
   await expect(row.locator(".field-error")).toHaveCount(0);
 });
@@ -399,4 +399,60 @@ test("翻译引擎支持列表筛选", async ({ page }) => {
   await page.getByLabel("筛选提供方").selectOption("");
   await page.getByLabel("筛选引擎状态").selectOption("deleted");
   await expect(page.locator(".history-table tbody tr")).toHaveCount(1);
+});
+
+test("翻译引擎支持批量暂停与批量删除", async ({ page }) => {
+  await page.addInitScript(() => {
+    const engines = [
+      {
+        id: "e-1",
+        provider: "ollama",
+        label: "A",
+        name: "本地引擎",
+        endpoint: "http://127.0.0.1:11434",
+        model: "translategemma",
+        enabled: true,
+        deletedAt: null,
+      },
+      {
+        id: "e-2",
+        provider: "custom",
+        label: "B",
+        name: "远端引擎",
+        endpoint: "https://api.example.com",
+        model: "qwen",
+        enabled: true,
+        deletedAt: null,
+      },
+      {
+        id: "e-3",
+        provider: "custom",
+        label: "C",
+        name: "备用引擎",
+        endpoint: "https://backup.example.com",
+        model: "llama",
+        enabled: true,
+        deletedAt: null,
+      },
+    ];
+    window.localStorage.setItem("itranslate.setup.done", "1");
+    window.localStorage.setItem("itranslate.engines.v1", JSON.stringify(engines));
+    window.localStorage.setItem("itranslate.default-engine.v1", "e-1");
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "翻译引擎" }).click();
+
+  await page.getByLabel("选择引擎-本地引擎").check();
+  await page.getByLabel("选择引擎-远端引擎").check();
+  await page.getByRole("button", { name: "批量暂停" }).click();
+
+  const localRow = page.locator("tr", { has: page.locator('input[value="本地引擎"]') });
+  const remoteRow = page.locator("tr", { has: page.locator('input[value="远端引擎"]') });
+  await expect(localRow).toContainText("暂停");
+  await expect(remoteRow).toContainText("暂停");
+
+  await page.getByRole("button", { name: "批量删除" }).click();
+  await page.getByLabel("筛选引擎状态").selectOption("deleted");
+  await expect(page.locator(".history-table tbody tr")).toHaveCount(2);
 });
