@@ -41,7 +41,7 @@ export function ResultViewer({ markdownText, viewMode, onChangeViewMode }: Resul
           theme={githubLight}
           extensions={[markdown()]}
           basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: false }}
-          height="420px"
+          height="100%"
         />
       ) : (
         <div className="html-preview" dangerouslySetInnerHTML={{ __html: html }} />

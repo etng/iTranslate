@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
-use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -127,9 +127,26 @@ async fn check_ollama_health(payload: OllamaHealthPayload) -> Result<OllamaHealt
 fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
   let about = MenuItem::with_id(app, "about", "关于", true, None::<&str>)?;
   let check_update = MenuItem::with_id(app, "check-update", "检查更新", true, None::<&str>)?;
+  let app_separator = PredefinedMenuItem::separator(app)?;
+  let edit_separator_1 = PredefinedMenuItem::separator(app)?;
+  let edit_separator_2 = PredefinedMenuItem::separator(app)?;
 
-  let submenu = Submenu::with_items(app, "应用", true, &[&about, &check_update])?;
-  Menu::with_items(app, &[&submenu])
+  let cut = PredefinedMenuItem::cut(app, None::<&str>)?;
+  let copy = PredefinedMenuItem::copy(app, None::<&str>)?;
+  let paste = PredefinedMenuItem::paste(app, None::<&str>)?;
+  let undo = PredefinedMenuItem::undo(app, None::<&str>)?;
+  let redo = PredefinedMenuItem::redo(app, None::<&str>)?;
+  let select_all = PredefinedMenuItem::select_all(app, None::<&str>)?;
+
+  let app_submenu = Submenu::with_items(app, "应用", true, &[&about, &app_separator, &check_update])?;
+  let edit_submenu = Submenu::with_items(
+    app,
+    "编辑",
+    true,
+    &[&undo, &redo, &edit_separator_1, &cut, &copy, &paste, &edit_separator_2, &select_all],
+  )?;
+
+  Menu::with_items(app, &[&app_submenu, &edit_submenu])
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
