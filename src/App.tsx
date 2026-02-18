@@ -125,6 +125,7 @@ function App() {
   const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
   const [bottomTab, setBottomTab] = useState<"status" | "log">("status");
   const [bottomCollapsed, setBottomCollapsed] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
@@ -145,6 +146,18 @@ function App() {
       ...prev,
     ].slice(0, 120));
   }, []);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [toastMessage]);
 
   useEffect(() => {
     translatingRef.current = translating;
@@ -601,6 +614,7 @@ function App() {
             setHistory(deleteHistoryById(id));
             appendLog("WARN", `删除历史记录：${id}`);
           }}
+          onToast={setToastMessage}
           defaultEpubAuthor={preferences.epubDefaultAuthor}
           defaultEpubDir={preferences.epubDefaultExportDir}
           onChangeDefaultEpubAuthor={(author) => setPreferences((prev) => ({ ...prev, epubDefaultAuthor: author }))}
@@ -716,6 +730,8 @@ function App() {
           )
         ) : null}
       </section>
+
+      {toastMessage ? <div className="toast">{toastMessage}</div> : null}
     </main>
   );
 }

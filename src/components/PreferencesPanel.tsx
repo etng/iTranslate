@@ -1,4 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
+import { Eraser, FolderOpen } from "lucide-react";
 import type { UserPreferences } from "../types";
 import { isTauriRuntime } from "../utils/runtime";
 
@@ -44,8 +45,24 @@ export function PreferencesPanel({ value, onChange }: PreferencesPanelProps) {
         </label>
 
         <div className="table-actions">
-          <button type="button" onClick={() => void handleChooseDir()}>选择目录</button>
-          <button type="button" onClick={() => onChange({ ...value, epubDefaultExportDir: null })}>清空默认目录</button>
+          <button
+            type="button"
+            title="选择目录"
+            aria-label="选择目录"
+            className="icon-btn icon-only"
+            onClick={() => void handleChooseDir()}
+          >
+            <FolderOpen size={16} />
+          </button>
+          <button
+            type="button"
+            title="清空默认目录"
+            aria-label="清空默认目录"
+            className="icon-btn icon-only"
+            onClick={() => onChange({ ...value, epubDefaultExportDir: null })}
+          >
+            <Eraser size={16} />
+          </button>
         </div>
       </div>
     </section>
