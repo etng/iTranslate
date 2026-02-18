@@ -67,13 +67,16 @@ make signer-sync-pubkey
 当前工作流：`.github/workflows/release.yml`
 
 - 触发条件：推送 `v*` tag
-- 产物：多平台安装包 + `latest.json` + 签名
+- 当前默认平台：`macos-latest`（如需扩展可在 workflow 增加矩阵平台）
+- 产物：安装包 + `latest.json` + 签名
 
 示例：
 
 ```bash
 make release PART=patch
 ```
+
+说明：`make release` 会自动提交版本文件、创建 tag 并推送当前分支与 tags。
 
 ## 6. 常见问题
 
