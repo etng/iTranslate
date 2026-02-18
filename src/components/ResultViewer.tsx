@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { githubLight } from "@uiw/codemirror-theme-github";
@@ -8,10 +9,79 @@ interface ResultViewerProps {
   markdownText: string;
   viewMode: "markdown" | "html";
   onChangeViewMode: (mode: "markdown" | "html") => void;
+  onScrollRatioChange?: (ratio: number) => void;
+  registerApplyScrollRatio?: (apply: (ratio: number) => void) => void;
 }
 
-export function ResultViewer({ markdownText, viewMode, onChangeViewMode }: ResultViewerProps) {
+function calcScrollRatio(container: HTMLElement): number {
+  const max = container.scrollHeight - container.clientHeight;
+  if (max <= 0) {
+    return 0;
+  }
+  return container.scrollTop / max;
+}
+
+function applyScrollRatio(container: HTMLElement, ratio: number): void {
+  const max = container.scrollHeight - container.clientHeight;
+  container.scrollTop = max > 0 ? max * ratio : 0;
+}
+
+export function ResultViewer({
+  markdownText,
+  viewMode,
+  onChangeViewMode,
+  onScrollRatioChange,
+  registerApplyScrollRatio,
+}: ResultViewerProps) {
   const html = renderMarkdownToHtml(markdownText);
+  const markdownScrollerRef = useRef<HTMLElement | null>(null);
+  const htmlScrollerRef = useRef<HTMLDivElement | null>(null);
+  const suppressRef = useRef(false);
+  const [markdownEditorReady, setMarkdownEditorReady] = useState(0);
+
+  const getActiveScroller = useCallback(() => {
+    if (viewMode === "markdown") {
+      return markdownScrollerRef.current;
+    }
+    return htmlScrollerRef.current;
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (!registerApplyScrollRatio) {
+      return;
+    }
+
+    registerApplyScrollRatio((ratio) => {
+      const scroller = getActiveScroller();
+      if (!scroller) {
+        return;
+      }
+      suppressRef.current = true;
+      applyScrollRatio(scroller, ratio);
+      requestAnimationFrame(() => {
+        suppressRef.current = false;
+      });
+    });
+  }, [getActiveScroller, registerApplyScrollRatio]);
+
+  useEffect(() => {
+    const scroller = getActiveScroller();
+    if (!scroller || !onScrollRatioChange) {
+      return;
+    }
+
+    const onScroll = () => {
+      if (suppressRef.current) {
+        return;
+      }
+      onScrollRatioChange(calcScrollRatio(scroller));
+    };
+
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+    };
+  }, [getActiveScroller, markdownEditorReady, onScrollRatioChange]);
 
   return (
     <section className="result-panel">
@@ -40,12 +110,23 @@ export function ResultViewer({ markdownText, viewMode, onChangeViewMode }: Resul
           value={markdownText}
           editable={false}
           theme={githubLight}
-          extensions={[markdown(), EditorView.lineWrapping]}
+          extensions={[
+            markdown(),
+            EditorView.lineWrapping,
+          ]}
+          onCreateEditor={(view) => {
+            markdownScrollerRef.current = view.scrollDOM;
+            setMarkdownEditorReady((value) => value + 1);
+          }}
           basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: false }}
           height="100%"
         />
       ) : (
-        <div className="html-preview" dangerouslySetInnerHTML={{ __html: html }} />
+        <div
+          ref={htmlScrollerRef}
+          className="html-preview"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       )}
     </section>
   );

@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import type { LanguageOption, TranslationHistoryItem } from "../types";
+import { LineNumberTextarea } from "./LineNumberTextarea";
 import { ResultViewer } from "./ResultViewer";
 
 interface HistoryDetailProps {
@@ -18,6 +20,9 @@ export function HistoryDetail({
   onBack,
   onEdit,
 }: HistoryDetailProps) {
+  const applyLeftScrollRatioRef = useRef<(ratio: number) => void>(() => {});
+  const applyRightScrollRatioRef = useRef<(ratio: number) => void>(() => {});
+
   return (
     <section className="history-detail">
       <header className="detail-header">
@@ -59,13 +64,24 @@ export function HistoryDetail({
       <div className="detail-panels">
         <section className="input-panel">
           <h3>原文（Markdown）</h3>
-          <textarea readOnly value={item.inputMarkdown} />
+          <LineNumberTextarea
+            value={item.inputMarkdown}
+            readOnly
+            onScrollRatioChange={(ratio) => applyRightScrollRatioRef.current(ratio)}
+            registerApplyScrollRatio={(apply) => {
+              applyLeftScrollRatioRef.current = apply;
+            }}
+          />
         </section>
 
         <ResultViewer
           markdownText={item.outputMarkdown}
           viewMode={viewMode}
           onChangeViewMode={onChangeViewMode}
+          onScrollRatioChange={(ratio) => applyLeftScrollRatioRef.current(ratio)}
+          registerApplyScrollRatio={(apply) => {
+            applyRightScrollRatioRef.current = apply;
+          }}
         />
       </div>
     </section>

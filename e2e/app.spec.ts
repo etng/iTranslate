@@ -136,6 +136,9 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
 
   await inputArea.click();
   await page.evaluate(() => {
+    const longHtml = Array.from({ length: 140 }, (_, index) => {
+      return `<p>Paste paragraph ${index + 1} with enough content for scroll sync check.</p>`;
+    }).join("");
     const el = document.querySelector("textarea");
     if (!el) {
       throw new Error("textarea not found");
@@ -151,7 +154,7 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
 
     const data = new DataTransfer();
     data.setData("text/plain", "plain");
-    data.setData("text/html", "<h2>PasteTitle</h2><p>Paste paragraph</p>");
+    data.setData("text/html", `<h2>PasteTitle</h2>${longHtml}`);
     el.dispatchEvent(
       new ClipboardEvent("paste", {
         clipboardData: data,
@@ -165,6 +168,8 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await expect(page.locator(".status-bar")).toContainText("翻译完成");
   await expect(page.locator(".status-bar .status-cell")).toHaveCount(3);
   await expect(page.getByRole("heading", { name: "执行日志" })).toBeVisible();
+  await expect(page.locator(".input-panel .line-gutter")).toBeVisible();
+  await expect(page.locator(".result-panel .cm-lineNumbers")).toBeVisible();
 
   const widthData = await page.evaluate(() => {
     const panels = document.querySelector(".panels");
@@ -198,6 +203,27 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   expect(widthData.horizontalOverflow).toBeLessThanOrEqual(1);
   expect(widthData.verticalOverflow).toBeLessThanOrEqual(1);
   expect(widthData.widthDiff).toBeLessThan(6);
+
+  await page.getByRole("button", { name: "HTML 预览" }).click();
+
+  const syncData = await page.evaluate(() => {
+    const right = document.querySelector(".result-panel .html-preview") as HTMLElement | null;
+    const left = document.querySelector(".input-panel textarea") as HTMLTextAreaElement | null;
+    if (!right || !left) {
+      return { ok: false, before: 0, after: 0, rightMax: 0, leftMax: 0 };
+    }
+    const rightMax = right.scrollHeight - right.clientHeight;
+    const leftMax = left.scrollHeight - left.clientHeight;
+    const before = left.scrollTop;
+    right.scrollTop = Math.max(240, right.scrollHeight);
+    right.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return { ok: true, before, after: left.scrollTop, rightMax, leftMax };
+  });
+
+  expect(syncData.ok).toBe(true);
+  expect(syncData.rightMax).toBeGreaterThan(0);
+  expect(syncData.leftMax).toBeGreaterThan(0);
+  expect(syncData.after).toBeGreaterThan(syncData.before);
 });
 
 test("seed 注入后历史表格分页可用", async ({ page }) => {
