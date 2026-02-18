@@ -194,7 +194,7 @@ export async function saveEpubByPicker(
 ): Promise<string | null> {
   if (!isTauriRuntime()) {
     downloadBlob(blob, filename);
-    return null;
+    return filename;
   }
 
   const defaultPath = defaultDir ? `${defaultDir}/${filename}` : filename;

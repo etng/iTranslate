@@ -513,6 +513,7 @@ test("历史多选记录可通过向导导出 EPUB", async ({ page }) => {
   await page.getByRole("button", { name: "导出 EPUB" }).last().click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.epub$/);
+  await expect(page.locator(".toast")).toContainText("EPUB 已保存成功");
 });
 
 test("用户偏好可影响 EPUB 默认作者", async ({ page }) => {

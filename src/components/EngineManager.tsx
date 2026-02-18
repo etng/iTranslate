@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Activity, Power, Save, ShieldCheck, Star, Trash2 } from "lucide-react";
 import { checkOllamaHealth } from "../services/translation";
 import {
   createNewEngineTemplate,
@@ -357,15 +358,56 @@ export function EngineManager({ state, onChange, onLog }: EngineManagerProps) {
                   </td>
                   <td>
                     <div className="table-actions">
-                      <button type="button" onClick={() => handleSave(engine.id)} disabled={deleted}>保存</button>
-                      <button type="button" onClick={() => void handleValidate(row)} disabled={deleted}>检测</button>
-                      <button type="button" onClick={() => handleToggleEnable(engine)} disabled={deleted}>
-                        {engine.enabled ? "暂停" : "启用"}
+                      <button
+                        type="button"
+                        title="保存"
+                        aria-label="保存"
+                        className="icon-btn icon-only"
+                        onClick={() => handleSave(engine.id)}
+                        disabled={deleted}
+                      >
+                        <Save size={16} />
                       </button>
-                      <button type="button" onClick={() => onChange(setDefaultEngine(state, engine.id))} disabled={deleted}>
-                        设为默认
+                      <button
+                        type="button"
+                        title="检测"
+                        aria-label="检测"
+                        className="icon-btn icon-only"
+                        onClick={() => void handleValidate(row)}
+                        disabled={deleted}
+                      >
+                        <ShieldCheck size={16} />
                       </button>
-                      <button type="button" onClick={() => handleDelete(engine.id)} disabled={deleted}>删除</button>
+                      <button
+                        type="button"
+                        title={engine.enabled ? "暂停" : "启用"}
+                        aria-label={engine.enabled ? "暂停" : "启用"}
+                        className="icon-btn icon-only"
+                        onClick={() => handleToggleEnable(engine)}
+                        disabled={deleted}
+                      >
+                        {engine.enabled ? <Power size={16} /> : <Activity size={16} />}
+                      </button>
+                      <button
+                        type="button"
+                        title="设为默认"
+                        aria-label="设为默认"
+                        className="icon-btn icon-only"
+                        onClick={() => onChange(setDefaultEngine(state, engine.id))}
+                        disabled={deleted}
+                      >
+                        <Star size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        title="删除"
+                        aria-label="删除"
+                        className="icon-btn icon-only"
+                        onClick={() => handleDelete(engine.id)}
+                        disabled={deleted}
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                     {saveErrors[engine.id] ? <p className="field-error">{saveErrors[engine.id]}</p> : null}
                   </td>

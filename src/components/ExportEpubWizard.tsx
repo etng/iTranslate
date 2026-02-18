@@ -9,6 +9,7 @@ interface ExportEpubWizardProps {
   defaultDir: string | null;
   onChangeDefaultAuthor: (author: string) => void;
   onChangeDefaultDir: (dir: string | null) => void;
+  onToast: (message: string) => void;
   onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export function ExportEpubWizard({
   defaultDir,
   onChangeDefaultAuthor,
   onChangeDefaultDir,
+  onToast,
   onClose,
 }: ExportEpubWizardProps) {
   const [step, setStep] = useState(1);
@@ -79,6 +81,7 @@ export function ExportEpubWizard({
       if (setDefaultAuthor && author.trim()) {
         onChangeDefaultAuthor(author.trim());
       }
+      onToast(`EPUB 已保存成功：${savedPath}`);
       onClose();
       setStep(1);
     } finally {

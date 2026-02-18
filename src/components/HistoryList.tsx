@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Eye, Trash2 } from "lucide-react";
 import type { TranslationHistoryItem } from "../types";
 import { ExportEpubWizard } from "./ExportEpubWizard";
 import { Pagination } from "./Pagination";
@@ -11,6 +12,7 @@ interface HistoryListProps {
   onOpenDetail: (item: TranslationHistoryItem) => void;
   onRenameTitle: (id: string, title: string) => void;
   onDelete: (id: string) => void;
+  onToast: (message: string) => void;
   defaultEpubAuthor: string;
   defaultEpubDir: string | null;
   onChangeDefaultEpubAuthor: (author: string) => void;
@@ -25,6 +27,7 @@ export function HistoryList({
   onOpenDetail,
   onRenameTitle,
   onDelete,
+  onToast,
   defaultEpubAuthor,
   defaultEpubDir,
   onChangeDefaultEpubAuthor,
@@ -188,15 +191,26 @@ export function HistoryList({
                   <td>{new Date(item.createdAt).toLocaleString()}</td>
                   <td>
                     <div className="table-actions">
-                      <button type="button" onClick={() => onOpenDetail(item)}>查看/编辑</button>
                       <button
                         type="button"
+                        title="查看/编辑"
+                        aria-label="查看/编辑"
+                        className="icon-btn icon-only"
+                        onClick={() => onOpenDetail(item)}
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        title="删除"
+                        aria-label="删除"
+                        className="icon-btn icon-only"
                         onClick={() => {
                           setSelectedIds((prev) => prev.filter((id) => id !== item.id));
                           onDelete(item.id);
                         }}
                       >
-                        删除
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -222,6 +236,7 @@ export function HistoryList({
         defaultDir={defaultEpubDir}
         onChangeDefaultAuthor={onChangeDefaultEpubAuthor}
         onChangeDefaultDir={onChangeDefaultEpubDir}
+        onToast={onToast}
         onClose={() => setWizardOpen(false)}
       />
     </section>
