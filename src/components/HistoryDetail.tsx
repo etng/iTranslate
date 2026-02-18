@@ -7,6 +7,7 @@ interface HistoryDetailProps {
   viewMode: "markdown" | "html";
   onChangeViewMode: (mode: "markdown" | "html") => void;
   onBack: () => void;
+  onEdit: () => void;
 }
 
 export function HistoryDetail({
@@ -15,13 +16,19 @@ export function HistoryDetail({
   viewMode,
   onChangeViewMode,
   onBack,
+  onEdit,
 }: HistoryDetailProps) {
   return (
     <section className="history-detail">
       <header className="detail-header">
-        <button type="button" onClick={onBack}>
-          返回历史列表
-        </button>
+        <div className="nav-buttons">
+          <button type="button" onClick={onBack}>
+            返回历史列表
+          </button>
+          <button type="button" onClick={onEdit}>
+            继续编辑并重译
+          </button>
+        </div>
         <h2>{item.title}</h2>
       </header>
 

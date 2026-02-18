@@ -4,6 +4,7 @@ const envPath = ".env.local";
 const defaults = {
   VITE_OLLAMA_ENDPOINT: "http://127.0.0.1:11434",
   VITE_OLLAMA_MODEL: "translategemma",
+  VITE_ENABLE_HISTORY_SEED: "0",
 };
 
 function parseEnv(content) {

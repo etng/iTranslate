@@ -26,6 +26,18 @@ export function upsertHistory(item: TranslationHistoryItem): TranslationHistoryI
   return next;
 }
 
+export function deleteHistoryById(id: string): TranslationHistoryItem[] {
+  const next = loadHistory().filter((item) => item.id !== id);
+  saveHistory(next);
+  return next;
+}
+
+export function replaceHistory(item: TranslationHistoryItem): TranslationHistoryItem[] {
+  const next = loadHistory().map((entry) => (entry.id === item.id ? item : entry));
+  saveHistory(next);
+  return next;
+}
+
 export function renameHistoryTitle(id: string, title: string): TranslationHistoryItem[] {
   const next = loadHistory().map((item) => (item.id === id ? { ...item, title } : item));
   saveHistory(next);
