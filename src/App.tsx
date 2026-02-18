@@ -42,6 +42,7 @@ import { HistoryList } from "./components/HistoryList";
 import { HistoryDetail } from "./components/HistoryDetail";
 import { ResultViewer } from "./components/ResultViewer";
 import { SetupWizard } from "./components/SetupWizard";
+import { LineNumberTextarea } from "./components/LineNumberTextarea";
 import { checkForUpdatesByMenu } from "./services/updateService";
 import { isTauriRuntime } from "./utils/runtime";
 import { historySeedEntries } from "./seeds/historySeed";
@@ -115,6 +116,8 @@ function App() {
   const autoTranslateTimerRef = useRef<number | null>(null);
   const translatingRef = useRef(false);
   const shortcutPasteRef = useRef(false);
+  const applyLeftScrollRatioRef = useRef<(ratio: number) => void>(() => {});
+  const applyRightScrollRatioRef = useRef<(ratio: number) => void>(() => {});
 
   const appendLog = useCallback((level: LogLevel, message: string) => {
     setRuntimeLogs((prev) => [
@@ -479,13 +482,17 @@ function App() {
                   <span>{translating ? "翻译中..." : "马上翻译"}</span>
                 </button>
               </div>
-              <textarea
-                ref={inputRef}
+              <LineNumberTextarea
+                textareaRef={inputRef}
                 placeholder="支持粘贴普通文本或 HTML。快捷键粘贴会自动识别 HTML 并转 Markdown"
                 value={inputText}
-                onChange={(event) => setInputText(event.target.value)}
+                onChange={setInputText}
                 onKeyDown={handleInputKeyDown}
                 onPaste={handlePaste}
+                onScrollRatioChange={(ratio) => applyRightScrollRatioRef.current(ratio)}
+                registerApplyScrollRatio={(apply) => {
+                  applyLeftScrollRatioRef.current = apply;
+                }}
               />
             </section>
 
@@ -493,6 +500,10 @@ function App() {
               markdownText={outputMarkdown}
               viewMode={resultViewMode}
               onChangeViewMode={setResultViewMode}
+              onScrollRatioChange={(ratio) => applyLeftScrollRatioRef.current(ratio)}
+              registerApplyScrollRatio={(apply) => {
+                applyRightScrollRatioRef.current = apply;
+              }}
             />
           </section>
 
