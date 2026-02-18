@@ -78,7 +78,7 @@ export async function translateWithModel(request: TranslateRequest): Promise<Tra
 
   if (!isTauriRuntime()) {
     return {
-      outputMarkdown: `[浏览器调试模式]\n\n${request.inputMarkdown}`,
+      outputMarkdown: request.inputMarkdown,
       usedPrompt: prompt,
     };
   }

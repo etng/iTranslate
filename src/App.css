@@ -115,14 +115,22 @@ textarea {
   text-align: right;
   padding: 8px 6px 8px 0;
   overflow: hidden;
+  user-select: none;
 }
 
-.line-gutter pre {
-  margin: 0;
+.line-gutter-line {
   font-size: 12px;
   line-height: 1.4;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   white-space: pre;
+  border-radius: 4px;
+  padding-right: 2px;
+  pointer-events: none;
+}
+
+.line-gutter-line.active {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .line-editor textarea {

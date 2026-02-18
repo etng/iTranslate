@@ -39,8 +39,7 @@ export function HistoryList({
               <tr>
                 <th>标题</th>
                 <th>语言方向</th>
-                <th>模型</th>
-                <th>引擎</th>
+                <th>翻译引擎</th>
                 <th>时间</th>
                 <th>操作</th>
               </tr>
@@ -58,8 +57,12 @@ export function HistoryList({
                   <td>
                     {item.sourceLanguage} → {item.targetLanguage}
                   </td>
-                  <td>{item.model}</td>
-                  <td>{item.engineDeleted ? `${item.engineName}（已删除）` : item.engineName}</td>
+                  <td>
+                    <div className="credential-cell">
+                      <strong>{item.engineDeleted ? `${item.engineName}（已删除）` : item.engineName}</strong>
+                      <small>{item.provider}/{item.model}</small>
+                    </div>
+                  </td>
                   <td>{new Date(item.createdAt).toLocaleString()}</td>
                   <td>
                     <div className="table-actions">

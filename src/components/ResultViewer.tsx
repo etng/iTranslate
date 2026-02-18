@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { githubLight } from "@uiw/codemirror-theme-github";
@@ -11,6 +11,7 @@ interface ResultViewerProps {
   onChangeViewMode: (mode: "markdown" | "html") => void;
   onScrollRatioChange?: (ratio: number) => void;
   registerApplyScrollRatio?: (apply: (ratio: number) => void) => void;
+  onSelectLine?: (line: number) => void;
 }
 
 function calcScrollRatio(container: HTMLElement): number {
@@ -32,6 +33,7 @@ export function ResultViewer({
   onChangeViewMode,
   onScrollRatioChange,
   registerApplyScrollRatio,
+  onSelectLine,
 }: ResultViewerProps) {
   const html = renderMarkdownToHtml(markdownText);
   const markdownScrollerRef = useRef<HTMLElement | null>(null);
@@ -83,6 +85,22 @@ export function ResultViewer({
     };
   }, [getActiveScroller, markdownEditorReady, onScrollRatioChange]);
 
+  const selectLineExtension = useMemo(() => {
+    return EditorView.domEventHandlers({
+      mousedown: (event, view) => {
+        if (!onSelectLine) {
+          return false;
+        }
+        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (pos == null) {
+          return false;
+        }
+        onSelectLine(view.state.doc.lineAt(pos).number);
+        return false;
+      },
+    });
+  }, [onSelectLine]);
+
   return (
     <section className="result-panel">
       <header className="result-header">
@@ -113,6 +131,7 @@ export function ResultViewer({
           extensions={[
             markdown(),
             EditorView.lineWrapping,
+            selectLineExtension,
           ]}
           onCreateEditor={(view) => {
             markdownScrollerRef.current = view.scrollDOM;
