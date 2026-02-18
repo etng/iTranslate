@@ -171,7 +171,9 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await expect(page.getByText("已将 HTML 转换为 Markdown 后粘贴，稍后自动翻译")).toBeVisible();
   await expect(page.locator(".status-bar")).toContainText("翻译完成");
   await expect(page.locator(".status-bar .status-cell")).toHaveCount(3);
+  await page.getByRole("button", { name: "日志" }).click();
   await expect(page.getByRole("heading", { name: "执行日志" })).toBeVisible();
+  await page.getByRole("button", { name: "状态" }).click();
   await expect(page.locator(".input-panel .line-gutter")).toBeVisible();
   await expect(page.locator(".result-panel .cm-lineNumbers")).toBeVisible();
 
@@ -455,4 +457,58 @@ test("翻译引擎支持批量暂停与批量删除", async ({ page }) => {
   await page.getByRole("button", { name: "批量删除" }).click();
   await page.getByLabel("筛选引擎状态").selectOption("deleted");
   await expect(page.locator(".history-table tbody tr")).toHaveCount(2);
+});
+
+test("历史多选记录可通过向导导出 EPUB", async ({ page }) => {
+  await page.addInitScript(() => {
+    const entries = [
+      {
+        id: "book-1",
+        title: "Chapter A",
+        createdAt: new Date().toISOString(),
+        sourceLanguage: "English",
+        targetLanguage: "Simplified Chinese",
+        inputRaw: "a",
+        inputMarkdown: "source a",
+        outputMarkdown: "target a",
+        provider: "ollama",
+        model: "translategemma",
+        engineId: "eng-a",
+        engineName: "引擎A",
+        engineDeleted: false,
+      },
+      {
+        id: "book-2",
+        title: "Chapter B",
+        createdAt: new Date().toISOString(),
+        sourceLanguage: "English",
+        targetLanguage: "Simplified Chinese",
+        inputRaw: "b",
+        inputMarkdown: "source b",
+        outputMarkdown: "target b",
+        provider: "ollama",
+        model: "translategemma",
+        engineId: "eng-a",
+        engineName: "引擎A",
+        engineDeleted: false,
+      },
+    ];
+    window.localStorage.setItem("itranslate.setup.done", "1");
+    window.localStorage.setItem("itranslate.history.v1", JSON.stringify(entries));
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "历史记录" }).click();
+  await page.getByLabel("选择翻译记录-Chapter A").check();
+  await page.getByLabel("选择翻译记录-Chapter B").check();
+  await page.getByRole("button", { name: "导出 EPUB" }).click();
+
+  await expect(page.getByRole("dialog", { name: "导出 EPUB 向导" })).toBeVisible();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await page.locator('select').last().selectOption("desc");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出 EPUB" }).last().click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.epub$/);
 });

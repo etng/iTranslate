@@ -119,6 +119,8 @@ function App() {
 
   const [runtimeLogs, setRuntimeLogs] = useState<RuntimeLog[]>([]);
   const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
+  const [bottomTab, setBottomTab] = useState<"status" | "log">("status");
+  const [bottomCollapsed, setBottomCollapsed] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
@@ -613,39 +615,67 @@ function App() {
         />
       ) : null}
 
-      <footer className="status-bar">
-        <div className="status-cell">
-          <span className="status-label">翻译状态</span>
-          <span>{statusText}</span>
-        </div>
-        <div className="status-cell">
-          <span className="status-label">最近记录</span>
-          <span>
-            {latestHistoryItem
-              ? `${latestHistoryItem.title}（${latestHistoryItem.engineDeleted ? `${latestHistoryItem.engineName} 已删除` : latestHistoryItem.engineName}）`
-              : "暂无"}
-          </span>
-        </div>
-        <div className="status-cell">
-          <span className="status-label">日志概览</span>
-          <span>{lastLog ? `${lastLog.level} ${lastLog.time}` : "暂无日志"}</span>
-        </div>
-      </footer>
-
-      <section className="log-panel" aria-label="执行日志">
-        <header>
-          <h3>执行日志</h3>
-          <span>{runtimeLogs.length} 条</span>
+      <section className={`bottom-dock ${bottomCollapsed ? "collapsed" : ""}`}>
+        <header className="bottom-dock-header">
+          <div className="switches">
+            <button
+              type="button"
+              className={bottomTab === "status" ? "active" : ""}
+              onClick={() => setBottomTab("status")}
+            >
+              状态
+            </button>
+            <button
+              type="button"
+              className={bottomTab === "log" ? "active" : ""}
+              onClick={() => setBottomTab("log")}
+            >
+              日志
+            </button>
+          </div>
+          <button type="button" onClick={() => setBottomCollapsed((value) => !value)}>
+            {bottomCollapsed ? "展开" : "折叠"}
+          </button>
         </header>
-        <ul>
-          {runtimeLogs.map((log) => (
-            <li key={log.id} className={`log-item ${log.level.toLowerCase()}`}>
-              <span className="time">{log.time}</span>
-              <span className="level">{log.level}</span>
-              <span className="message">{log.message}</span>
-            </li>
-          ))}
-        </ul>
+
+        {!bottomCollapsed ? (
+          bottomTab === "status" ? (
+            <div className="status-bar">
+              <div className="status-cell">
+                <span className="status-label">翻译状态</span>
+                <span>{statusText}</span>
+              </div>
+              <div className="status-cell">
+                <span className="status-label">最近记录</span>
+                <span>
+                  {latestHistoryItem
+                    ? `${latestHistoryItem.title}（${latestHistoryItem.engineDeleted ? `${latestHistoryItem.engineName} 已删除` : latestHistoryItem.engineName}）`
+                    : "暂无"}
+                </span>
+              </div>
+              <div className="status-cell">
+                <span className="status-label">日志概览</span>
+                <span>{lastLog ? `${lastLog.level} ${lastLog.time}` : "暂无日志"}</span>
+              </div>
+            </div>
+          ) : (
+            <section className="log-panel" aria-label="执行日志">
+              <header>
+                <h3>执行日志</h3>
+                <span>{runtimeLogs.length} 条</span>
+              </header>
+              <ul>
+                {runtimeLogs.map((log) => (
+                  <li key={log.id} className={`log-item ${log.level.toLowerCase()}`}>
+                    <span className="time">{log.time}</span>
+                    <span className="level">{log.level}</span>
+                    <span className="message">{log.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        ) : null}
       </section>
     </main>
   );
