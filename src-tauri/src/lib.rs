@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::time::{Duration, Instant};
 use tauri::Emitter;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
@@ -61,7 +62,18 @@ struct SaveBinaryPayload {
 
 #[tauri::command]
 async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, String> {
-  let client = Client::new();
+  let started_at = Instant::now();
+  log::info!(
+    "translate_text start endpoint={} model={} prompt_chars={}",
+    payload.endpoint,
+    payload.model,
+    payload.prompt.chars().count()
+  );
+
+  let client = Client::builder()
+    .timeout(Duration::from_secs(180))
+    .build()
+    .map_err(|error| format!("创建 HTTP 客户端失败: {error}"))?;
   let endpoint = format!("{}/api/generate", payload.endpoint.trim_end_matches('/'));
 
   let mut request = client
@@ -87,18 +99,32 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
     }))
     .send()
     .await
-    .map_err(|error| format!("请求 Ollama 失败: {error}"))?;
+    .map_err(|error| {
+      log::error!("translate_text request error endpoint={} error={}", endpoint, error);
+      format!("请求 Ollama 失败: {error}")
+    })?;
 
   if !response.status().is_success() {
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
+    log::error!("translate_text bad status endpoint={} status={} body={}", endpoint, status, body);
     return Err(format!("Ollama 返回异常状态 {status}: {body}"));
   }
 
   let parsed = response
     .json::<OllamaGenerateResponse>()
     .await
-    .map_err(|error| format!("解析 Ollama 响应失败: {error}"))?;
+    .map_err(|error| {
+      log::error!("translate_text parse error endpoint={} error={}", endpoint, error);
+      format!("解析 Ollama 响应失败: {error}")
+    })?;
+
+  log::info!(
+    "translate_text done endpoint={} model={} elapsed_ms={}",
+    payload.endpoint,
+    payload.model,
+    started_at.elapsed().as_millis()
+  );
 
   Ok(TranslateOutput {
     text: parsed.response,
@@ -107,7 +133,10 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
 
 #[tauri::command]
 async fn check_ollama_health(payload: OllamaHealthPayload) -> Result<OllamaHealthOutput, String> {
-  let client = Client::new();
+  let client = Client::builder()
+    .timeout(Duration::from_secs(15))
+    .build()
+    .map_err(|error| format!("创建 HTTP 客户端失败: {error}"))?;
   let endpoint = format!("{}/api/tags", payload.endpoint.trim_end_matches('/'));
 
   let response = client
