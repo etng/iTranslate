@@ -29,6 +29,6 @@ export const DEFAULT_MODEL_CONFIG: TranslatorModelConfig = {
 export const APP_NAME = "iTranslate";
 export const APP_SEMVER = "0.1.1";
 export const UPDATE_METADATA_URL =
-  "https://github.com/your-org/itranslate/releases/latest/download/latest.json";
+  "https://api.github.com/repos/etng/iTranslate/releases/latest";
 export const APP_BUILD_NUMBER = 1;
 export const HISTORY_PAGE_SIZE = 8;

@@ -30,18 +30,26 @@ async function fetchLatestMetadata(): Promise<UpdateMetadata> {
   }
 
   const data = (await response.json()) as {
-    version: string;
+    tag_name?: string;
+    name?: string;
+    body?: string;
+    assets?: Array<{ browser_download_url?: string }>;
+    version?: string;
     notes?: string;
-    platforms?: Record<string, { url?: string }>;
     build_number?: number;
     download_url?: string;
   };
 
+  const rawVersion = (data.tag_name ?? data.version ?? "").replace(/^v/i, "");
+  if (!rawVersion) {
+    throw new Error("更新元信息缺少版本号");
+  }
+
   return {
-    version: data.version,
-    buildNumber: data.build_number ?? parseVersionParts(data.version)[3],
-    notes: data.notes,
-    downloadUrl: data.download_url,
+    version: rawVersion,
+    buildNumber: data.build_number ?? parseVersionParts(rawVersion)[3],
+    notes: data.body ?? data.notes ?? data.name,
+    downloadUrl: data.download_url ?? data.assets?.[0]?.browser_download_url,
   };
 }
 
