@@ -26,14 +26,23 @@
 ## 开发运行
 
 ```bash
-npm install
-npm run tauri:dev
+make up-desktop
 ```
 
-仅前端调试：
+仅前端调试（初始化并启动）：
 
 ```bash
-npm run dev
+make up-web
+```
+
+常用命令：
+
+```bash
+make init         # 初始化依赖与本地配置数据(.env.local)
+make run-web      # 仅启动 Web 服务
+make run-desktop  # 仅启动桌面入口
+make check        # lint + 单测 + cargo check
+make setup-e2e    # 安装 Playwright Chromium
 ```
 
 ## 测试命令
