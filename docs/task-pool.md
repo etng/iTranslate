@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- [x] 修复 `make release` 写死 `main` 分支导致 push 失败的问题（改为自动识别当前分支）
 - [x] docs 目录文件名英文化（`task-pool.md` / `task-progress.md` / `signing-and-release.md`）
 - [x] 新增一键发版命令 `make release PART=...`（bump + push tag）
 - [x] 阶段性提交治理：按功能/CI/构建/文档分批提交，清空未提交积压
