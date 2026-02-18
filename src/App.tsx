@@ -48,6 +48,11 @@ import { isTauriRuntime } from "./utils/runtime";
 import { historySeedEntries } from "./seeds/historySeed";
 import { EngineManager } from "./components/EngineManager";
 import { detectSourceLanguage } from "./services/languageDetect";
+import {
+  getBlockIndexByLine,
+  getBlockRangeByIndex,
+  type MarkdownBlockRange,
+} from "./services/markdownBlockMap";
 import "./App.css";
 
 const SETUP_KEY = "itranslate.setup.done";
@@ -113,7 +118,7 @@ function App() {
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
 
   const [runtimeLogs, setRuntimeLogs] = useState<RuntimeLog[]>([]);
-  const [linkedLine, setLinkedLine] = useState<number | null>(null);
+  const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
@@ -273,6 +278,7 @@ function App() {
         });
 
         setOutputMarkdown(result.outputMarkdown);
+        setLinkedRange(null);
 
         if (editingHistoryId) {
           const replacedItem = createHistoryItem({
@@ -345,8 +351,18 @@ function App() {
     void executeTranslate(inputText, "manual");
   };
 
+  const handleSelectResultLine = (line: number) => {
+    const blockIndex = getBlockIndexByLine(outputMarkdown, line);
+    if (blockIndex == null) {
+      setLinkedRange(null);
+      return;
+    }
+    setLinkedRange(getBlockRangeByIndex(inputText, blockIndex));
+  };
+
   const handleInputChange = (value: string) => {
     setInputText(value);
+    setLinkedRange(null);
     scheduleDetectSourceLanguage(value);
   };
 
@@ -390,6 +406,7 @@ function App() {
     const nextValue = `${inputText.slice(0, selectionStart)}${insertText}${inputText.slice(selectionEnd)}`;
 
     setInputText(nextValue);
+    setLinkedRange(null);
     scheduleDetectSourceLanguage(nextValue);
     setStatusText(
       fromShortcut && htmlText.trim().length > 0
@@ -517,7 +534,7 @@ function App() {
                 onChange={handleInputChange}
                 onKeyDown={handleInputKeyDown}
                 onPaste={handlePaste}
-                highlightedLine={linkedLine}
+                highlightedRange={linkedRange}
                 onScrollRatioChange={(ratio) => applyRightScrollRatioRef.current(ratio)}
                 registerApplyScrollRatio={(apply) => {
                   applyLeftScrollRatioRef.current = apply;
@@ -533,7 +550,7 @@ function App() {
               registerApplyScrollRatio={(apply) => {
                 applyRightScrollRatioRef.current = apply;
               }}
-              onSelectLine={setLinkedLine}
+              onSelectLine={handleSelectResultLine}
             />
           </section>
 

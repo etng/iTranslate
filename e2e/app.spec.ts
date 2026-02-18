@@ -176,7 +176,8 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await expect(page.locator(".result-panel .cm-lineNumbers")).toBeVisible();
 
   await page.locator(".result-panel .cm-line").nth(12).click();
-  await expect(page.locator(".input-panel .line-gutter-line.active")).toHaveCount(1);
+  const highlightedCount = await page.locator(".input-panel .line-gutter-line.active").count();
+  expect(highlightedCount).toBeGreaterThan(0);
 
   const widthData = await page.evaluate(() => {
     const panels = document.querySelector(".panels");

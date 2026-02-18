@@ -2,6 +2,11 @@ import { useState, useRef } from "react";
 import type { LanguageOption, TranslationHistoryItem } from "../types";
 import { LineNumberTextarea } from "./LineNumberTextarea";
 import { ResultViewer } from "./ResultViewer";
+import {
+  getBlockIndexByLine,
+  getBlockRangeByIndex,
+  type MarkdownBlockRange,
+} from "../services/markdownBlockMap";
 
 interface HistoryDetailProps {
   item: TranslationHistoryItem;
@@ -22,7 +27,16 @@ export function HistoryDetail({
 }: HistoryDetailProps) {
   const applyLeftScrollRatioRef = useRef<(ratio: number) => void>(() => {});
   const applyRightScrollRatioRef = useRef<(ratio: number) => void>(() => {});
-  const [linkedLine, setLinkedLine] = useState<number | null>(null);
+  const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
+
+  const handleSelectResultLine = (line: number) => {
+    const blockIndex = getBlockIndexByLine(item.outputMarkdown, line);
+    if (blockIndex == null) {
+      setLinkedRange(null);
+      return;
+    }
+    setLinkedRange(getBlockRangeByIndex(item.inputMarkdown, blockIndex));
+  };
 
   return (
     <section className="history-detail">
@@ -68,7 +82,7 @@ export function HistoryDetail({
           <LineNumberTextarea
             value={item.inputMarkdown}
             readOnly
-            highlightedLine={linkedLine}
+            highlightedRange={linkedRange}
             onScrollRatioChange={(ratio) => applyRightScrollRatioRef.current(ratio)}
             registerApplyScrollRatio={(apply) => {
               applyLeftScrollRatioRef.current = apply;
@@ -84,7 +98,7 @@ export function HistoryDetail({
           registerApplyScrollRatio={(apply) => {
             applyRightScrollRatioRef.current = apply;
           }}
-          onSelectLine={setLinkedLine}
+          onSelectLine={handleSelectResultLine}
         />
       </div>
     </section>
