@@ -48,7 +48,7 @@ const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
 const tauriConf = JSON.parse(readFileSync(tauriConfigPath, "utf8"));
 const cargo = readFileSync(cargoPath, "utf8");
 const constants = readFileSync(constantsPath, "utf8");
-const constantMatch = constants.match(/export const APP_SEMVER = "(\\d+\\.\\d+\\.\\d+)";/);
+const constantMatch = constants.match(/export const APP_SEMVER = "(\d+\.\d+\.\d+)";/);
 if (!constantMatch) {
   throw new Error("src/constants/languages.ts 缺少 APP_SEMVER");
 }
