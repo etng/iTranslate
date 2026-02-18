@@ -9,6 +9,8 @@ import {
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { History, Languages, Play, Server } from "lucide-react";
 import {
+  APP_BUILD_NUMBER,
+  APP_SEMVER,
   LANGUAGE_OPTIONS,
   DEFAULT_MODEL_CONFIG,
   DEFAULT_SOURCE_LANGUAGE,
@@ -177,7 +179,7 @@ function App() {
     const bindMenuListeners = async () => {
       const unlistenAbout = await listen("menu://about", () => {
         window.alert(
-          "iTranslate\n本地翻译工具\n核心功能：Markdown 保格式翻译、历史记录、更新检测\n版本：0.1.0.1",
+          `iTranslate\n本地翻译工具\n核心功能：Markdown 保格式翻译、历史记录、更新检测\n版本：${APP_SEMVER}.${APP_BUILD_NUMBER}`,
         );
       });
       const unlistenUpdate = await listen("menu://check-update", async () => {
