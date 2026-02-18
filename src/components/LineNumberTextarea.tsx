@@ -19,7 +19,7 @@ interface LineNumberTextareaProps {
   textareaRef?: MutableRefObject<HTMLTextAreaElement | null>;
   onScrollRatioChange?: (ratio: number) => void;
   registerApplyScrollRatio?: (apply: (ratio: number) => void) => void;
-  highlightedLine?: number | null;
+  highlightedRange?: { startLine: number; endLine: number } | null;
 }
 
 function calcRatio(textarea: HTMLTextAreaElement): number {
@@ -46,7 +46,7 @@ export function LineNumberTextarea({
   textareaRef,
   onScrollRatioChange,
   registerApplyScrollRatio,
-  highlightedLine,
+  highlightedRange,
 }: LineNumberTextareaProps) {
   const localRef = useRef<HTMLTextAreaElement | null>(null);
   const gutterRef = useRef<HTMLDivElement | null>(null);
@@ -79,7 +79,7 @@ export function LineNumberTextarea({
   }, [registerApplyScrollRatio]);
 
   useEffect(() => {
-    if (!highlightedLine || highlightedLine < 1) {
+    if (!highlightedRange || highlightedRange.startLine < 1) {
       return;
     }
 
@@ -91,7 +91,7 @@ export function LineNumberTextarea({
     const computed = window.getComputedStyle(textarea);
     const parsedLineHeight = Number.parseFloat(computed.lineHeight);
     const lineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 0 ? parsedLineHeight : 20;
-    const targetTop = (highlightedLine - 1) * lineHeight;
+    const targetTop = (highlightedRange.startLine - 1) * lineHeight;
     const targetBottom = targetTop + lineHeight;
 
     if (targetTop >= textarea.scrollTop && targetBottom <= textarea.scrollTop + textarea.clientHeight) {
@@ -107,7 +107,7 @@ export function LineNumberTextarea({
     requestAnimationFrame(() => {
       suppressRef.current = false;
     });
-  }, [highlightedLine]);
+  }, [highlightedRange]);
 
   const handleScroll = (event: UIEvent<HTMLTextAreaElement>) => {
     const textarea = event.currentTarget;
@@ -133,7 +133,7 @@ export function LineNumberTextarea({
         {numbers.map((line) => (
           <div
             key={line}
-            className={`line-gutter-line ${highlightedLine === line ? "active" : ""}`}
+            className={`line-gutter-line ${highlightedRange && line >= highlightedRange.startLine && line <= highlightedRange.endLine ? "active" : ""}`}
           >
             {line}
           </div>
