@@ -66,3 +66,8 @@ export interface EngineStoreState {
   engines: TranslatorModelConfig[];
   defaultEngineId: string | null;
 }
+
+export interface UserPreferences {
+  epubDefaultAuthor: string;
+  epubDefaultExportDir: string | null;
+}

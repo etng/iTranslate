@@ -1,21 +1,35 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TranslationHistoryItem } from "../types";
-import { buildBilingualEpubBlob, downloadBlob } from "../services/epub";
+import { buildBilingualEpubBlob, saveEpubByPicker } from "../services/epub";
 
 interface ExportEpubWizardProps {
   open: boolean;
   items: TranslationHistoryItem[];
+  defaultAuthor: string;
+  defaultDir: string | null;
+  onChangeDefaultAuthor: (author: string) => void;
+  onChangeDefaultDir: (dir: string | null) => void;
   onClose: () => void;
 }
 
 type SortOrder = "asc" | "desc";
 
-export function ExportEpubWizard({ open, items, onClose }: ExportEpubWizardProps) {
+export function ExportEpubWizard({
+  open,
+  items,
+  defaultAuthor,
+  defaultDir,
+  onChangeDefaultAuthor,
+  onChangeDefaultDir,
+  onClose,
+}: ExportEpubWizardProps) {
   const [step, setStep] = useState(1);
   const [bookTitle, setBookTitle] = useState("双语译文合集");
-  const [author, setAuthor] = useState("iTranslate");
+  const [author, setAuthor] = useState(defaultAuthor || "iTranslate");
   const [language, setLanguage] = useState("zh-CN");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [setDefaultDir, setSetDefaultDir] = useState(false);
+  const [setDefaultAuthor, setSetDefaultAuthor] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const sortedItems = useMemo(() => {
@@ -24,6 +38,16 @@ export function ExportEpubWizard({ open, items, onClose }: ExportEpubWizardProps
       return sortOrder === "asc" ? value : -value;
     });
   }, [items, sortOrder]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setAuthor(defaultAuthor || "iTranslate");
+    setSetDefaultAuthor(false);
+    setSetDefaultDir(false);
+    setStep(1);
+  }, [defaultAuthor, open]);
 
   if (!open) {
     return null;
@@ -42,7 +66,19 @@ export function ExportEpubWizard({ open, items, onClose }: ExportEpubWizardProps
         identifier: crypto.randomUUID(),
       });
       const safeTitle = (bookTitle.trim() || "双语译文合集").replace(/[\\/:*?"<>|]/g, "_");
-      downloadBlob(blob, `${safeTitle}.epub`);
+      const savedPath = await saveEpubByPicker(blob, `${safeTitle}.epub`, defaultDir);
+      if (!savedPath) {
+        return;
+      }
+      if (savedPath && setDefaultDir) {
+        const dir = savedPath.slice(0, Math.max(savedPath.lastIndexOf("/"), savedPath.lastIndexOf("\\")));
+        if (dir) {
+          onChangeDefaultDir(dir);
+        }
+      }
+      if (setDefaultAuthor && author.trim()) {
+        onChangeDefaultAuthor(author.trim());
+      }
       onClose();
       setStep(1);
     } finally {
@@ -68,9 +104,21 @@ export function ExportEpubWizard({ open, items, onClose }: ExportEpubWizardProps
               作者
               <input value={author} onChange={(event) => setAuthor(event.target.value)} />
             </label>
+            <label className="inline-check">
+              <input type="checkbox" checked={setDefaultAuthor} onChange={(event) => setSetDefaultAuthor(event.target.checked)} />
+              将该作者设为默认偏好
+            </label>
             <label>
               语言代码
               <input value={language} onChange={(event) => setLanguage(event.target.value)} />
+            </label>
+            <label>
+              默认导出目录（当前）
+              <input value={defaultDir ?? ""} readOnly placeholder="未设置，导出时手动选择" />
+            </label>
+            <label className="inline-check">
+              <input type="checkbox" checked={setDefaultDir} onChange={(event) => setSetDefaultDir(event.target.checked)} />
+              将本次选择的目录设为默认偏好
             </label>
           </div>
         ) : (

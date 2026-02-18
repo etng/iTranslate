@@ -514,3 +514,38 @@ test("历史多选记录可通过向导导出 EPUB", async ({ page }) => {
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.epub$/);
 });
+
+test("用户偏好可影响 EPUB 默认作者", async ({ page }) => {
+  await page.addInitScript(() => {
+    const entries = [
+      {
+        id: "pref-1",
+        title: "Pref Chapter",
+        createdAt: new Date().toISOString(),
+        sourceLanguage: "English",
+        targetLanguage: "Simplified Chinese",
+        inputRaw: "pref",
+        inputMarkdown: "pref source",
+        outputMarkdown: "pref target",
+        provider: "ollama",
+        model: "translategemma",
+        engineId: "eng-a",
+        engineName: "引擎A",
+        engineDeleted: false,
+      },
+    ];
+    window.localStorage.setItem("itranslate.setup.done", "1");
+    window.localStorage.setItem("itranslate.history.v1", JSON.stringify(entries));
+    window.localStorage.setItem("itranslate.preferences.v1", JSON.stringify({
+      epubDefaultAuthor: "默认作者X",
+      epubDefaultExportDir: null,
+    }));
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "历史记录" }).click();
+  await page.getByLabel("选择翻译记录-Pref Chapter").check();
+  await page.getByRole("button", { name: "导出 EPUB" }).click();
+  await expect(page.getByRole("dialog", { name: "导出 EPUB 向导" })).toBeVisible();
+  await expect(page.locator('input[value="默认作者X"]')).toBeVisible();
+});

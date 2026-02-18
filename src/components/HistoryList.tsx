@@ -11,6 +11,10 @@ interface HistoryListProps {
   onOpenDetail: (item: TranslationHistoryItem) => void;
   onRenameTitle: (id: string, title: string) => void;
   onDelete: (id: string) => void;
+  defaultEpubAuthor: string;
+  defaultEpubDir: string | null;
+  onChangeDefaultEpubAuthor: (author: string) => void;
+  onChangeDefaultEpubDir: (dir: string | null) => void;
 }
 
 export function HistoryList({
@@ -21,6 +25,10 @@ export function HistoryList({
   onOpenDetail,
   onRenameTitle,
   onDelete,
+  defaultEpubAuthor,
+  defaultEpubDir,
+  onChangeDefaultEpubAuthor,
+  onChangeDefaultEpubDir,
 }: HistoryListProps) {
   const [searchText, setSearchText] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -207,7 +215,15 @@ export function HistoryList({
         <Pagination currentPage={safePage} pageSize={pageSize} total={filteredItems.length} onChange={onChangePage} />
       </div>
 
-      <ExportEpubWizard open={wizardOpen} items={selectedItems} onClose={() => setWizardOpen(false)} />
+      <ExportEpubWizard
+        open={wizardOpen}
+        items={selectedItems}
+        defaultAuthor={defaultEpubAuthor}
+        defaultDir={defaultEpubDir}
+        onChangeDefaultAuthor={onChangeDefaultEpubAuthor}
+        onChangeDefaultDir={onChangeDefaultEpubDir}
+        onClose={() => setWizardOpen(false)}
+      />
     </section>
   );
 }
