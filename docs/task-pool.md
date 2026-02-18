@@ -8,6 +8,9 @@
 
 ## 已完成
 
+- [x] docs 目录文件名英文化（`task-pool.md` / `task-progress.md` / `signing-and-release.md`）
+- [x] 新增一键发版命令 `make release PART=...`（bump + push tag）
+- [x] 阶段性提交治理：按功能/CI/构建/文档分批提交，清空未提交积压
 - [x] 新增签名与发布操作文档（保留到 `docs/`，`cat` 命令统一 `| pbcopy`）
 - [x] 新增 Makefile 签名辅助命令（生成密钥、复制到剪贴板、同步 pubkey）
 - [x] README 补充签名与自动发版的快捷命令说明

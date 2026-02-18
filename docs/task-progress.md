@@ -14,6 +14,8 @@
 - `Makefile` 统一常用命令（初始化、启动、测试、seed、版本等）。
 - 接入 GitHub Actions 自动发版（`v*` tag 触发构建 + Release + 安装包/Updater 元数据上传）。
 - 增加签名与发版操作文档，提供 `pbcopy` 一键复制 secrets 内容与 Makefile 快捷命令。
+- `docs/` 文件名已统一为英文命名，便于跨平台与自动化脚本引用。
+- 本轮改动已按主题分批提交，避免未提交改动长期堆积。
 
 2. 翻译主链路
 - 接入 Ollama `translategemma`。
