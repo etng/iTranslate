@@ -27,7 +27,7 @@ export const DEFAULT_MODEL_CONFIG: TranslatorModelConfig = {
 };
 
 export const APP_NAME = "iTranslate";
-export const APP_SEMVER = "0.2.4";
+export const APP_SEMVER = "0.3.0";
 export const UPDATE_METADATA_URL =
   "https://api.github.com/repos/etng/iTranslate/releases/latest";
 export const APP_BUILD_NUMBER = 1;
