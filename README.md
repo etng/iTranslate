@@ -1,35 +1,44 @@
 # iTranslate
 
-基于 `Tauri + React` 的桌面翻译工具，默认使用本地 `Ollama + translategemma`，并预留多模型接入接口。
+基于 `Tauri + React` 的桌面翻译工具，默认使用本地 `Ollama + translategemma`，面向长文场景提供格式保留翻译、历史追溯、引擎管理与 EPUB 导出能力。
 
-## 核心功能
+## 当前能力（0.2.x）
 
-- 初始化向导：首次启动校验 Ollama 服务与模型是否可用。
-- 双语翻译：默认 `英语 -> 简体中文`，可切换语言。
-- HTML 预处理：输入为 HTML 时先转换为更稳定的 Markdown 再翻译。
-- 保格式翻译：调用时自动拼接 translategemma prompt format，并附加 Markdown 保真约束。
-- 结果双视图：支持 Markdown（带行号编辑器）和 HTML 预览切换。
-- 历史记录：保存输入、输出、语言、模型、时间、标题；支持标题编辑、分页、详情只读回看。
-- 原生菜单：关于、检查更新。
+- 启动向导：首次启动检测 Ollama 服务与模型可用性。
+- 翻译流程：默认 `英语 -> 简体中文`，支持语言切换与手动翻译。
+- 输入处理：
+  - `Cmd/Ctrl + V` 粘贴时可识别 HTML 并转换为 Markdown。
+  - 手动键入默认不自动翻译，需点击“马上翻译”。
+- 结果展示：Markdown（带行号）/ HTML 预览双视图。
+- 双栏阅读：按段落块联动定位，减少左右阅读错位。
+- 历史记录：分页、编辑标题、删除、回看、继续编辑重译。
+- 新建翻译：历史详情可一键退出覆盖模式，开启全新翻译。
+- 翻译引擎：新增/编辑/启停/软删除/默认引擎切换。
+- 用户偏好：默认 EPUB 作者、默认导出目录。
+- EPUB 导出：历史多选导出，向导参数配置，兼容 iBooks。
+- 菜单：关于、检查更新（GitHub `releases/latest`）。
+- 自动发版：`v*` tag 触发 GitHub Actions 构建并发布 Release。
 
-## 技术架构
+## 技术栈
 
 - 前端：React + TypeScript + Vite
-- 桌面容器：Tauri v2
+- 桌面：Tauri v2
 - 翻译调用：Rust `reqwest` -> Ollama `/api/generate`
 - 模型探测：Rust `reqwest` -> Ollama `/api/tags`
-- Markdown 渲染：`marked + DOMPurify`
+- Markdown：`marked + DOMPurify`
 - HTML 转 Markdown：`turndown`
-- Markdown 编辑器：`@uiw/react-codemirror`
+- 编辑器：`@uiw/react-codemirror`
 - 测试：Vitest + Playwright
 
-## 开发运行
+## 开发命令
+
+一键初始化并启动桌面端：
 
 ```bash
 make up-desktop
 ```
 
-仅前端调试（初始化并启动）：
+仅前端：
 
 ```bash
 make up-web
@@ -38,25 +47,24 @@ make up-web
 常用命令：
 
 ```bash
-make init         # 初始化依赖与本地配置数据(.env.local)
-make run-web      # 仅启动 Web 服务
-make run-desktop  # 仅启动桌面入口
-make check        # lint + 单测 + cargo check
-make setup-e2e    # 安装 Playwright Chromium
-make seed-history # 生成分页演示 seed（下次启动自动注入一次）
-make bump-version PART=patch  # 升级版本并创建对应 git tag
-make release PART=patch       # 升级版本并按当前分支推送 tag（触发自动发版）
-make signer-generate      # 生成 Tauri updater 密钥对
-make signer-copy-private  # 复制私钥到剪贴板（GitHub Secret）
-make signer-copy-public   # 复制公钥到剪贴板
-make signer-copy-password # 复制私钥密码到剪贴板
-make signer-sync-pubkey   # 同步公钥到 tauri.conf.json
+make init                       # 初始化依赖与本地配置(.env.local)
+make run-web                    # 启动 Web 开发服务
+make run-desktop                # 启动桌面开发入口
+make check                      # lint + 单测 + cargo check
+make setup-e2e                  # 安装 Playwright Chromium
+make seed-history               # 注入分页演示 seed（下次启动生效一次）
+make bump-version PART=patch    # 仅升级版本并打 tag
+make release PART=patch         # 升级版本并推送当前分支 + tags
 ```
 
-清理本地 Tauri 构建缓存（释放磁盘）：
+签名辅助：
 
 ```bash
-cargo clean --manifest-path src-tauri/Cargo.toml
+make signer-generate
+make signer-copy-private
+make signer-copy-public
+make signer-copy-password
+make signer-sync-pubkey
 ```
 
 ## 测试命令
@@ -68,54 +76,45 @@ npm run test:e2e
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-## 更新配置说明
+## 自动发版（GitHub Actions）
 
-当前更新检查分两层：
+工作流：`.github/workflows/release.yml`
 
-1. 前端读取 GitHub Release 的 `latest.json` 做版本比较（支持 `1.2.3.1234` 四段版本）。
-2. 若有更新，再调用 Tauri Updater 下载并安装。
+- 触发：推送 `v*` tag，或手动 `workflow_dispatch`
+- 输出：多平台安装包 + Release 资产 + Updater `latest.json`
 
-你需要替换以下占位配置：
-
-- `src/constants/languages.ts` 的 `UPDATE_METADATA_URL`
-- `src-tauri/tauri.conf.json` 的 `plugins.updater.endpoints`
-- `src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey`
-
-## GitHub Actions 自动发版
-
-已提供工作流：`.github/workflows/release.yml`
-
-- 触发条件：推送 `v*` tag（例如 `v0.1.2`）
-- 自动行为：构建多平台安装包、创建/更新 GitHub Release、上传安装包与 `latest.json`/签名
-
-首次启用前需要在仓库 `Settings -> Secrets and variables -> Actions` 配置：
+必需 Secrets（仓库 `Settings -> Secrets and variables -> Actions`）：
 
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
-建议发版流程：
+推荐流程：
 
 1. `make release PART=patch`（或 `minor` / `major`）
-2. 在 GitHub 的 `Actions` 查看 `发布桌面应用` 工作流
-3. 在 `Releases` 页面确认产物与 `latest.json`
+2. 打开 GitHub Actions 查看 `发布桌面应用`
+3. 打开 Releases 确认产物
 
-签名与自动发版详细操作见：`docs/signing-and-release.md`
+详细步骤见：`docs/signing-and-release.md`
 
-## translategemma Prompt 说明
+## 更新检查说明
 
-调用时会在原文前拼接官方格式前缀：
+- 客户端读取 `https://api.github.com/repos/etng/iTranslate/releases/latest`
+- 若发现新版本则提示下载更新
+- Tauri updater 使用 `src-tauri/tauri.conf.json` 中 endpoint + pubkey
 
-```text
-Translate from {source_lang} to {target_lang}.
-Source: {source_lang}: {source_text}
-Translation: {target_lang}:
+## 空间占用说明
+
+Tauri/Rust 开发阶段会在 `src-tauri/target` 产生较大构建缓存（数 GB 属正常）。
+
+清理命令：
+
+```bash
+cargo clean --manifest-path src-tauri/Cargo.toml
 ```
 
-并附加 Markdown 保格式规则（仅用于请求，不会存储到历史正文）。
-
-## 文档目录
+## 文档索引
 
 - `docs/PRD.md`：产品需求文档
-- `docs/task-progress.md`：阶段进展记录
-- `docs/task-pool.md`：任务拆分与勾选进度
-- `docs/signing-and-release.md`：密钥生成、Secrets 配置与自动发版步骤
+- `docs/task-pool.md`：任务池（勾选进度）
+- `docs/task-progress.md`：阶段进展
+- `docs/signing-and-release.md`：签名与自动发版手册
