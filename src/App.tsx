@@ -217,6 +217,7 @@ function App() {
   const defaultEngine = availableEngines.find((engine) => engine.id === engineState.defaultEngineId) ?? null;
   const selectedEngine = availableEngines.find((engine) => engine.id === selectedEngineId)
     ?? defaultEngine
+    ?? availableEngines[0]
     ?? null;
 
   const executeTranslate = useCallback(
@@ -322,11 +323,17 @@ function App() {
     setSetupDone(true);
     localStorage.setItem(SETUP_KEY, "1");
     appendLog("INFO", "初始化向导完成，进入主界面");
-
-    const initState = loadEngineState();
-    if (initState.engines.length === 0) {
-      setEngineState({ engines: [config], defaultEngineId: config.id });
-    }
+    setEngineState((prev) => {
+      const existed = prev.engines.find((engine) => engine.id === config.id);
+      const engines = existed
+        ? prev.engines.map((engine) => (engine.id === config.id ? { ...engine, ...config, deletedAt: null } : engine))
+        : [{ ...config, deletedAt: null }, ...prev.engines];
+      return {
+        engines,
+        defaultEngineId: config.id,
+      };
+    });
+    setSelectedEngineId(config.id);
   };
 
   const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
