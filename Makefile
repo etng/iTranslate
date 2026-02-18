@@ -2,7 +2,7 @@ SHELL := /bin/zsh
 SIGNER_KEY_PATH ?= $(HOME)/.tauri/keys/itranslate.key
 SIGNER_PASSWORD ?= mksakmc
 
-.PHONY: help install init-data init seed-history bump-version release setup-e2e run-web run-desktop up-web up-desktop lint test test-e2e build check clean signer-generate signer-copy-private signer-copy-public signer-copy-password signer-sync-pubkey
+.PHONY: help install init-data init seed-history bump-version release setup-e2e run-web run-desktop up-web up-desktop lint typecheck test test-e2e build check clean signer-generate signer-copy-private signer-copy-public signer-copy-password signer-sync-pubkey
 
 help:
 	@echo "可用命令："
@@ -73,6 +73,9 @@ up-desktop: init run-desktop
 lint:
 	@npm run lint
 
+typecheck:
+	@npm run typecheck
+
 test:
 	@npm run test
 
@@ -82,7 +85,7 @@ test-e2e:
 build:
 	@npm run build
 
-check: lint test
+check: lint typecheck test
 	@cargo check --manifest-path src-tauri/Cargo.toml
 
 clean:

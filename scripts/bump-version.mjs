@@ -91,6 +91,17 @@ writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
 writeFileSync(tauriConfigPath, `${JSON.stringify(tauriConf, null, 2)}\n`, "utf8");
 writeFileSync(cargoPath, nextCargo, "utf8");
 writeFileSync(constantsPath, nextConstants, "utf8");
+execSync("cargo generate-lockfile --manifest-path src-tauri/Cargo.toml", { stdio: "inherit" });
+
+const releaseFiles = [
+  packagePath,
+  tauriConfigPath,
+  cargoPath,
+  "src-tauri/Cargo.lock",
+  constantsPath,
+];
+execSync(`git add ${releaseFiles.join(" ")}`, { stdio: "inherit" });
+execSync(`git commit -m "chore(release): 🔧 bump version to ${nextVersion}"`, { stdio: "inherit" });
 
 const existingTags = execSync("git tag --list", { encoding: "utf8" })
   .split(/\r?\n/)

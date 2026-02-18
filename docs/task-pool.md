@@ -8,6 +8,8 @@
 
 ## 已完成
 
+- [x] GitHub Actions 发布提速：Rust 缓存 + 缩减默认平台 + 减少重复前端构建开销
+- [x] 修复发版脚本残留版本改动：bump 后自动提交再打 tag
 - [x] README 用户化重构：开发说明迁移到 `docs/`，README 聚焦功能与使用
 - [x] README 全量同步更新：按当前 0.2.x 实现刷新功能、命令、发布与排障说明
 - [x] 修复 CI 发版阻塞：tauri-action 参数更正 + bundle identifier 改为唯一值

@@ -1,11 +1,13 @@
 {
   "name": "itranslate",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "build:web": "vite build",
+    "build": "npm run typecheck && npm run build:web",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",

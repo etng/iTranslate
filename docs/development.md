@@ -50,6 +50,7 @@ make release PART=patch
 
 `make release` 会：
 - 升级版本号
+- 自动提交版本文件
 - 创建 `v*` tag
 - 推送当前分支与 tags
 

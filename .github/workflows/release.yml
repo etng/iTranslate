@@ -15,12 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        platform:
+          - macos-latest
         include:
           - platform: macos-latest
-            args: ""
-          - platform: ubuntu-22.04
-            args: ""
-          - platform: windows-latest
             args: ""
     runs-on: ${{ matrix.platform }}
     steps:
@@ -35,6 +33,11 @@ jobs:
 
       - name: 安装 Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Rust 构建
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
 
       - name: 安装 Linux 构建依赖
         if: matrix.platform == 'ubuntu-22.04'
