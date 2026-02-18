@@ -68,6 +68,11 @@ const HISTORY_SEED_APPLIED_KEY = "itranslate.history.seed.applied.v1";
 
 type TranslateTrigger = "manual" | "paste";
 type LogLevel = "INFO" | "WARN" | "ERROR";
+type QuoteTranslateOptions = {
+  sourceLanguage?: string;
+  targetLanguage?: string;
+  historyTitle?: string;
+};
 
 interface RuntimeLog {
   id: string;
@@ -78,6 +83,7 @@ interface RuntimeLog {
 
 function createHistoryItem(args: {
   id?: string;
+  title?: string;
   sourceLanguage: string;
   targetLanguage: string;
   inputRaw: string;
@@ -87,7 +93,7 @@ function createHistoryItem(args: {
 }): TranslationHistoryItem {
   return {
     id: args.id ?? crypto.randomUUID(),
-    title: createAutoTitle(args.inputMarkdown),
+    title: args.title ?? createAutoTitle(args.inputMarkdown),
     createdAt: new Date().toISOString(),
     sourceLanguage: args.sourceLanguage,
     targetLanguage: args.targetLanguage,
@@ -100,6 +106,11 @@ function createHistoryItem(args: {
     engineName: args.engine.name,
     engineDeleted: Boolean(args.engine.deletedAt),
   };
+}
+
+function formatQuoteHistoryTitle(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `名言警句翻译${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日${pad(date.getHours())}时${pad(date.getMinutes())}分${pad(date.getSeconds())}秒`;
 }
 
 function App() {
@@ -133,6 +144,7 @@ function App() {
   const [quoteIndex, setQuoteIndex] = useState(() => (
     LEARNING_QUOTES.length > 0 ? Math.floor(Math.random() * LEARNING_QUOTES.length) : 0
   ));
+  const [quoteHistoryTitle, setQuoteHistoryTitle] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
@@ -322,7 +334,11 @@ function App() {
     ?? null;
 
   const executeTranslate = useCallback(
-    async (rawInput: string, trigger: TranslateTrigger) => {
+    async (rawInput: string, trigger: TranslateTrigger, options?: QuoteTranslateOptions) => {
+      const effectiveSourceLanguage = options?.sourceLanguage ?? sourceLanguage;
+      const effectiveTargetLanguage = options?.targetLanguage ?? targetLanguage;
+      const effectiveHistoryTitle = options?.historyTitle ?? quoteHistoryTitle ?? undefined;
+
       if (!rawInput.trim()) {
         setStatusText("请输入待翻译文本");
         appendLog("WARN", "收到空输入，跳过翻译");
@@ -359,8 +375,8 @@ function App() {
       try {
         const preprocessed = preprocessInput(rawInput);
         const result = await translateWithModel({
-          sourceLanguage,
-          targetLanguage,
+          sourceLanguage: effectiveSourceLanguage,
+          targetLanguage: effectiveTargetLanguage,
           inputRaw: rawInput,
           inputMarkdown: preprocessed.markdown,
           modelConfig: selectedEngine,
@@ -372,8 +388,9 @@ function App() {
         if (editingHistoryId) {
           const replacedItem = createHistoryItem({
             id: editingHistoryId,
-            sourceLanguage,
-            targetLanguage,
+            title: effectiveHistoryTitle,
+            sourceLanguage: effectiveSourceLanguage,
+            targetLanguage: effectiveTargetLanguage,
             inputRaw: rawInput,
             inputMarkdown: preprocessed.markdown,
             outputMarkdown: result.outputMarkdown,
@@ -386,8 +403,9 @@ function App() {
           appendLog("INFO", `[${requestId}] 请求完成，耗时 ${Math.round(performance.now() - startAt)}ms`);
         } else {
           const historyItem = createHistoryItem({
-            sourceLanguage,
-            targetLanguage,
+            title: effectiveHistoryTitle,
+            sourceLanguage: effectiveSourceLanguage,
+            targetLanguage: effectiveTargetLanguage,
             inputRaw: rawInput,
             inputMarkdown: preprocessed.markdown,
             outputMarkdown: result.outputMarkdown,
@@ -399,6 +417,7 @@ function App() {
           appendLog("INFO", `翻译完成并写入历史：${historyItem.title}`);
           appendLog("INFO", `[${requestId}] 请求完成，耗时 ${Math.round(performance.now() - startAt)}ms`);
         }
+        setQuoteHistoryTitle(null);
       } catch (error) {
         const message = error instanceof Error ? error.message : "未知错误";
         setStatusText(`翻译失败：${message}`);
@@ -408,7 +427,7 @@ function App() {
         setTranslating(false);
       }
     },
-    [appendLog, availableEngines, editingHistoryId, selectedEngine, sourceLanguage, targetLanguage],
+    [appendLog, availableEngines, editingHistoryId, quoteHistoryTitle, selectedEngine, sourceLanguage, targetLanguage],
   );
 
   const scheduleTranslateByDebounce = useCallback(
@@ -442,6 +461,31 @@ function App() {
   const handleTranslateClick = () => {
     void executeTranslate(inputText, "manual");
   };
+
+  const handleTranslateQuote = useCallback(() => {
+    if (!activeQuote) {
+      return;
+    }
+    const quoteText = activeQuote.text.trim();
+    if (!quoteText) {
+      return;
+    }
+    const historyTitle = formatQuoteHistoryTitle(new Date());
+
+    setScreen("translator");
+    setEditingHistoryId(null);
+    setSourceLanguage("English");
+    setInputText(quoteText);
+    setOutputMarkdown("");
+    setLinkedRange(null);
+    setQuoteHistoryTitle(historyTitle);
+    setStatusText("已从名言创建新翻译任务，正在翻译...");
+    appendLog("INFO", `从名言创建翻译任务：${activeQuote.author}`);
+    void executeTranslate(quoteText, "manual", {
+      sourceLanguage: "English",
+      historyTitle,
+    });
+  }, [activeQuote, appendLog, executeTranslate]);
 
   const handleSelectResultLine = (line: number) => {
     const blockIndex = getBlockIndexByLine(outputMarkdown, line);
@@ -567,6 +611,7 @@ function App() {
     setInputText("");
     setOutputMarkdown("");
     setLinkedRange(null);
+    setQuoteHistoryTitle(null);
     setStatusText("已开始新翻译，请输入待翻译内容");
     appendLog("INFO", "已切换为新建翻译模式");
   }, [appendLog]);
@@ -590,10 +635,16 @@ function App() {
       <header className="top-nav">
         <div className="nav-quote" aria-live="polite">
           {activeQuote ? (
-            <>
+            <button
+              type="button"
+              className="quote-trigger"
+              onClick={handleTranslateQuote}
+              title="将此名言作为新翻译任务"
+              aria-label="将此名言作为新翻译任务"
+            >
               <span className="quote-text">"{activeQuote.text}"</span>
               <span className="quote-meta">- {activeQuote.author}, {activeQuote.source}</span>
-            </>
+            </button>
           ) : null}
         </div>
         <div className="nav-buttons">
@@ -778,6 +829,7 @@ function App() {
             onEdit={() => {
               setScreen("translator");
               setEditingHistoryId(selectedHistory.id);
+              setQuoteHistoryTitle(null);
               setInputText(selectedHistory.inputRaw);
               setOutputMarkdown(selectedHistory.outputMarkdown);
               setSourceLanguage(selectedHistory.sourceLanguage);

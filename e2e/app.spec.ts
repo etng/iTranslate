@@ -155,6 +155,26 @@ test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => 
   await expect(page.getByPlaceholder("支持粘贴普通文本或 HTML。快捷键粘贴会自动识别 HTML 并转 Markdown")).toHaveValue("");
 });
 
+test("点击名言可新建翻译任务并写入固定历史标题", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "验证并进入" }).click();
+  await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
+  await page.getByRole("button", { name: "展开底部面板" }).click();
+
+  const quoteButton = page.getByRole("button", { name: "将此名言作为新翻译任务" });
+  const quoteText = (await quoteButton.locator(".quote-text").innerText()).replace(/^"|"$/g, "");
+  await quoteButton.click();
+
+  const inputArea = page.getByPlaceholder("支持粘贴普通文本或 HTML。快捷键粘贴会自动识别 HTML 并转 Markdown");
+  await expect(inputArea).toHaveValue(quoteText);
+  await expect(page.locator(".status-bar")).toContainText("翻译完成");
+
+  await page.getByRole("button", { name: "历史记录" }).click();
+  await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
+  await expect(page.locator('input[value^="名言警句翻译"]')).toBeVisible();
+  await expect(page.locator('input[value^="名言警句翻译"]')).toHaveValue(/名言警句翻译\d{4}年\d{2}月\d{2}日\d{2}时\d{2}分\d{2}秒/);
+});
+
 test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "验证并进入" }).click();
