@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import JSZip from "jszip";
 
 interface ChapterSection {
   title: string;
@@ -75,6 +76,25 @@ function buildSeedEntries(markdown: string, size = 18): SeedEntry[] {
     engineName: "分页演示引擎",
     engineDeleted: false,
   }));
+}
+
+async function buildSampleEpubBuffer(): Promise<Buffer> {
+  const zip = new JSZip();
+  zip.file("META-INF/container.xml", "<root/>");
+  zip.file(
+    "OEBPS/content.opf",
+    `<?xml version="1.0"?>
+    <package xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <metadata>
+        <dc:title>SampleBook</dc:title>
+        <dc:creator>Tester</dc:creator>
+        <dc:language>en</dc:language>
+      </metadata>
+    </package>`,
+  );
+  zip.file("OEBPS/chapter-1.xhtml", "<h1>Chapter One</h1><p>Hello world from epub.</p>");
+  zip.file("OEBPS/chapter-2.xhtml", "<h1>Chapter Two</h1><p>Another paragraph.</p>");
+  return zip.generateAsync({ type: "nodebuffer" });
 }
 
 test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => {
@@ -173,6 +193,31 @@ test("点击名言可新建翻译任务并写入固定历史标题", async ({ pa
   await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
   await expect(page.locator('input[value^="名言警句翻译"]')).toBeVisible();
   await expect(page.locator('input[value^="名言警句翻译"]')).toHaveValue(/名言警句翻译\d{4}年\d{2}月\d{2}日\d{2}时\d{2}分\d{2}秒/);
+});
+
+test("EPUB 闭环翻译可写入历史并自动导出", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "验证并进入" }).click();
+  await expect(page.getByRole("button", { name: "EPUB闭环翻译" })).toBeVisible();
+
+  await page.getByRole("button", { name: "EPUB闭环翻译" }).click();
+  await expect(page.getByRole("dialog", { name: "EPUB 闭环翻译" })).toBeVisible();
+
+  const epubBuffer = await buildSampleEpubBuffer();
+  await page.getByLabel("选择EPUB文件").setInputFiles({
+    name: "SampleBook.epub",
+    mimeType: "application/epub+zip",
+    buffer: epubBuffer,
+  });
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "开始闭环翻译" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/_已翻译\.epub$/);
+
+  await expect(page.locator(".toast")).toContainText("EPUB 闭环翻译完成");
+  await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
+  await expect(page.locator('input[value^="SampleBook ⟫ chapter-1.xhtml"]')).toBeVisible();
 });
 
 test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", async ({ page }) => {
