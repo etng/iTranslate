@@ -8,7 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { ChevronDown, ChevronUp, FileText, History, Info, Languages, Play, Server, Settings } from "lucide-react";
+import { ChevronDown, ChevronUp, FilePlus2, FileText, History, Info, Languages, Play, Server, Settings } from "lucide-react";
 import {
   APP_BUILD_NUMBER,
   APP_SEMVER,
@@ -18,6 +18,7 @@ import {
   DEFAULT_TARGET_LANGUAGE,
   HISTORY_PAGE_SIZE,
 } from "./constants/languages";
+import { LEARNING_QUOTES } from "./constants/quotes";
 import type {
   EngineStoreState,
   TranslationHistoryItem,
@@ -62,6 +63,7 @@ import "./App.css";
 const SETUP_KEY = "itranslate.setup.done";
 const AUTO_TRANSLATE_DEBOUNCE_MS = 650;
 const AUTO_DETECT_LANGUAGE_DEBOUNCE_MS = 280;
+const QUOTE_ROTATE_INTERVAL_MS = 60_000;
 const HISTORY_SEED_APPLIED_KEY = "itranslate.history.seed.applied.v1";
 
 type TranslateTrigger = "manual" | "paste";
@@ -128,15 +130,22 @@ function App() {
   const [bottomCollapsed, setBottomCollapsed] = useState(true);
   const [bottomHeight, setBottomHeight] = useState(180);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [quoteIndex, setQuoteIndex] = useState(() => (
+    LEARNING_QUOTES.length > 0 ? Math.floor(Math.random() * LEARNING_QUOTES.length) : 0
+  ));
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoTranslateTimerRef = useRef<number | null>(null);
   const autoDetectTimerRef = useRef<number | null>(null);
   const translatingRef = useRef(false);
   const shortcutPasteRef = useRef(false);
-  const applyLeftScrollRatioRef = useRef<(ratio: number) => void>(() => {});
-  const applyRightScrollRatioRef = useRef<(ratio: number) => void>(() => {});
+  const applyLeftScrollToLineRef = useRef<(line: number) => void>(() => {});
+  const applyRightScrollToBlockRef = useRef<(blockIndex: number) => void>(() => {});
+  const blockSyncSourceRef = useRef<"left" | "right" | null>(null);
+  const blockSyncResetTimerRef = useRef<number | null>(null);
   const dockDragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+
+  const activeQuote = LEARNING_QUOTES[quoteIndex] ?? null;
 
   const appendLog = useCallback((level: LogLevel, message: string) => {
     setRuntimeLogs((prev) => [
@@ -208,6 +217,21 @@ function App() {
       if (autoDetectTimerRef.current) {
         window.clearTimeout(autoDetectTimerRef.current);
       }
+      if (blockSyncResetTimerRef.current) {
+        window.clearTimeout(blockSyncResetTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (LEARNING_QUOTES.length <= 1) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setQuoteIndex((prev) => (prev + 1) % LEARNING_QUOTES.length);
+    }, QUOTE_ROTATE_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -428,6 +452,43 @@ function App() {
     setLinkedRange(getBlockRangeByIndex(inputText, blockIndex));
   };
 
+  const resetBlockSyncSource = useCallback((source: "left" | "right") => {
+    if (blockSyncResetTimerRef.current) {
+      window.clearTimeout(blockSyncResetTimerRef.current);
+    }
+    blockSyncResetTimerRef.current = window.setTimeout(() => {
+      if (blockSyncSourceRef.current === source) {
+        blockSyncSourceRef.current = null;
+      }
+    }, 120);
+  }, []);
+
+  const handleLeftVisibleLineChange = useCallback((line: number) => {
+    if (blockSyncSourceRef.current === "right") {
+      return;
+    }
+    const blockIndex = getBlockIndexByLine(inputText, line);
+    if (blockIndex == null) {
+      return;
+    }
+    blockSyncSourceRef.current = "left";
+    applyRightScrollToBlockRef.current(blockIndex);
+    resetBlockSyncSource("left");
+  }, [inputText, resetBlockSyncSource]);
+
+  const handleRightVisibleBlockChange = useCallback((blockIndex: number | null) => {
+    if (blockSyncSourceRef.current === "left" || blockIndex == null) {
+      return;
+    }
+    const range = getBlockRangeByIndex(inputText, blockIndex);
+    if (!range) {
+      return;
+    }
+    blockSyncSourceRef.current = "right";
+    applyLeftScrollToLineRef.current(range.startLine);
+    resetBlockSyncSource("right");
+  }, [inputText, resetBlockSyncSource]);
+
   const handleInputChange = (value: string) => {
     setInputText(value);
     setLinkedRange(null);
@@ -500,6 +561,23 @@ function App() {
     shortcutPasteRef.current = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "v";
   };
 
+  const handleStartNewTranslation = useCallback(() => {
+    setScreen("translator");
+    setEditingHistoryId(null);
+    setInputText("");
+    setOutputMarkdown("");
+    setLinkedRange(null);
+    setStatusText("已开始新翻译，请输入待翻译内容");
+    appendLog("INFO", "已切换为新建翻译模式");
+  }, [appendLog]);
+
+  const handleBottomTabClick = (tab: "status" | "log") => {
+    setBottomTab(tab);
+    if (bottomCollapsed) {
+      setBottomCollapsed(false);
+    }
+  };
+
   const lastLog = runtimeLogs[0];
   const latestHistoryItem = history[0];
 
@@ -509,48 +587,54 @@ function App() {
 
   return (
     <main className="app-shell full-screen">
-      {screen !== "historyDetail" ? (
-        <header className="top-nav">
-          <div className="nav-buttons">
-            <button
-              type="button"
-              title="翻译"
-              aria-label="翻译"
-              className={`icon-btn icon-only ${screen === "translator" ? "active" : ""}`}
-              onClick={() => setScreen("translator")}
-            >
-              <Languages size={16} />
-            </button>
-            <button
-              type="button"
-              title="历史记录"
-              aria-label="历史记录"
-              className={`icon-btn icon-only ${screen === "history" ? "active" : ""}`}
-              onClick={() => setScreen("history")}
-            >
-              <History size={16} />
-            </button>
-            <button
-              type="button"
-              title="翻译引擎"
-              aria-label="翻译引擎"
-              className={`icon-btn icon-only ${screen === "engines" ? "active" : ""}`}
-              onClick={() => setScreen("engines")}
-            >
-              <Server size={16} />
-            </button>
-            <button
-              type="button"
-              title="用户偏好"
-              aria-label="用户偏好"
-              className={`icon-btn icon-only ${screen === "preferences" ? "active" : ""}`}
-              onClick={() => setScreen("preferences")}
-            >
-              <Settings size={16} />
-            </button>
-          </div>
-        </header>
-      ) : null}
+      <header className="top-nav">
+        <div className="nav-quote" aria-live="polite">
+          {activeQuote ? (
+            <>
+              <span className="quote-text">"{activeQuote.text}"</span>
+              <span className="quote-meta">- {activeQuote.author}, {activeQuote.source}</span>
+            </>
+          ) : null}
+        </div>
+        <div className="nav-buttons">
+          <button
+            type="button"
+            title="翻译"
+            aria-label="翻译"
+            className={`icon-btn icon-only ${screen === "translator" ? "active" : ""}`}
+            onClick={() => setScreen("translator")}
+          >
+            <Languages size={16} />
+          </button>
+          <button
+            type="button"
+            title="历史记录"
+            aria-label="历史记录"
+            className={`icon-btn icon-only ${screen === "history" ? "active" : ""}`}
+            onClick={() => setScreen("history")}
+          >
+            <History size={16} />
+          </button>
+          <button
+            type="button"
+            title="翻译引擎"
+            aria-label="翻译引擎"
+            className={`icon-btn icon-only ${screen === "engines" ? "active" : ""}`}
+            onClick={() => setScreen("engines")}
+          >
+            <Server size={16} />
+          </button>
+          <button
+            type="button"
+            title="用户偏好"
+            aria-label="用户偏好"
+            className={`icon-btn icon-only ${screen === "preferences" ? "active" : ""}`}
+            onClick={() => setScreen("preferences")}
+          >
+            <Settings size={16} />
+          </button>
+        </div>
+      </header>
 
       <section className="main-content">
         {screen === "translator" ? (
@@ -598,15 +682,27 @@ function App() {
             <section className="input-panel fill-panel">
               <div className="panel-header">
                 <h3>{editingHistoryId ? "编辑并重译" : "待翻译内容"}</h3>
-                <button
-                  type="button"
-                  className="icon-btn primary"
-                  disabled={translating}
-                  onClick={handleTranslateClick}
-                >
-                  <Play size={16} />
-                  <span>{translating ? "翻译中..." : "马上翻译"}</span>
-                </button>
+                <div className="table-actions">
+                  {editingHistoryId ? (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={handleStartNewTranslation}
+                    >
+                      <FilePlus2 size={16} />
+                      <span>新建翻译</span>
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="icon-btn primary"
+                    disabled={translating}
+                    onClick={handleTranslateClick}
+                  >
+                    <Play size={16} />
+                    <span>{translating ? "翻译中..." : "马上翻译"}</span>
+                  </button>
+                </div>
               </div>
               <LineNumberTextarea
                 textareaRef={inputRef}
@@ -616,9 +712,9 @@ function App() {
                 onKeyDown={handleInputKeyDown}
                 onPaste={handlePaste}
                 highlightedRange={linkedRange}
-                onScrollRatioChange={(ratio) => applyRightScrollRatioRef.current(ratio)}
-                registerApplyScrollRatio={(apply) => {
-                  applyLeftScrollRatioRef.current = apply;
+                onVisibleLineChange={handleLeftVisibleLineChange}
+                registerScrollToLine={(scrollToLine) => {
+                  applyLeftScrollToLineRef.current = scrollToLine;
                 }}
               />
             </section>
@@ -627,9 +723,9 @@ function App() {
               markdownText={outputMarkdown}
               viewMode={resultViewMode}
               onChangeViewMode={setResultViewMode}
-              onScrollRatioChange={(ratio) => applyLeftScrollRatioRef.current(ratio)}
-              registerApplyScrollRatio={(apply) => {
-                applyRightScrollRatioRef.current = apply;
+              onVisibleBlockChange={handleRightVisibleBlockChange}
+              registerScrollToBlock={(scrollToBlock) => {
+                applyRightScrollToBlockRef.current = scrollToBlock;
               }}
               onSelectLine={handleSelectResultLine}
             />
@@ -678,6 +774,7 @@ function App() {
               setScreen("history");
               appendLog("INFO", "返回历史列表");
             }}
+            onStartNew={handleStartNewTranslation}
             onEdit={() => {
               setScreen("translator");
               setEditingHistoryId(selectedHistory.id);
@@ -726,7 +823,7 @@ function App() {
               title="状态"
               aria-label="状态"
               className={`icon-btn icon-only ${bottomTab === "status" ? "active" : ""}`}
-              onClick={() => setBottomTab("status")}
+              onClick={() => handleBottomTabClick("status")}
             >
               <Info size={16} />
             </button>
@@ -735,7 +832,7 @@ function App() {
               title="执行日志"
               aria-label="执行日志"
               className={`icon-btn icon-only ${bottomTab === "log" ? "active" : ""}`}
-              onClick={() => setBottomTab("log")}
+              onClick={() => handleBottomTabClick("log")}
             >
               <FileText size={16} />
             </button>

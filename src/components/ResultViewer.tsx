@@ -4,40 +4,38 @@ import { markdown } from "@codemirror/lang-markdown";
 import { githubLight } from "@uiw/codemirror-theme-github";
 import { EditorView } from "@codemirror/view";
 import { renderMarkdownToHtml } from "../services/markdown";
+import {
+  buildMarkdownBlocks,
+  getBlockIndexByLine,
+  getBlockRangeByIndex,
+} from "../services/markdownBlockMap";
 
 interface ResultViewerProps {
   markdownText: string;
   viewMode: "markdown" | "html";
   onChangeViewMode: (mode: "markdown" | "html") => void;
-  onScrollRatioChange?: (ratio: number) => void;
-  registerApplyScrollRatio?: (apply: (ratio: number) => void) => void;
+  onVisibleBlockChange?: (blockIndex: number | null) => void;
+  registerScrollToBlock?: (scrollToBlock: (blockIndex: number) => void) => void;
   onSelectLine?: (line: number) => void;
-}
-
-function calcScrollRatio(container: HTMLElement): number {
-  const max = container.scrollHeight - container.clientHeight;
-  if (max <= 0) {
-    return 0;
-  }
-  return container.scrollTop / max;
-}
-
-function applyScrollRatio(container: HTMLElement, ratio: number): void {
-  const max = container.scrollHeight - container.clientHeight;
-  container.scrollTop = max > 0 ? max * ratio : 0;
 }
 
 export function ResultViewer({
   markdownText,
   viewMode,
   onChangeViewMode,
-  onScrollRatioChange,
-  registerApplyScrollRatio,
+  onVisibleBlockChange,
+  registerScrollToBlock,
   onSelectLine,
 }: ResultViewerProps) {
-  const html = renderMarkdownToHtml(markdownText);
+  const blocks = useMemo(() => buildMarkdownBlocks(markdownText), [markdownText]);
+  const lines = useMemo(() => markdownText.split(/\r?\n/), [markdownText]);
+  const htmlBlocks = useMemo(() => blocks.map((block, index) => ({
+    index,
+    html: renderMarkdownToHtml(lines.slice(block.startLine - 1, block.endLine).join("\n")),
+  })), [blocks, lines]);
   const markdownScrollerRef = useRef<HTMLElement | null>(null);
   const htmlScrollerRef = useRef<HTMLDivElement | null>(null);
+  const markdownViewRef = useRef<EditorView | null>(null);
   const suppressRef = useRef(false);
   const [markdownEditorReady, setMarkdownEditorReady] = useState(0);
 
@@ -48,27 +46,71 @@ export function ResultViewer({
     return htmlScrollerRef.current;
   }, [viewMode]);
 
+  const detectHtmlVisibleBlock = useCallback(() => {
+    const container = htmlScrollerRef.current;
+    if (!container) {
+      return null;
+    }
+    const children = Array.from(container.querySelectorAll<HTMLElement>(".result-html-block"));
+    if (children.length === 0) {
+      return null;
+    }
+    const top = container.scrollTop;
+    const found = children.find((child) => child.offsetTop + child.offsetHeight > top + 2) ?? children.at(-1) ?? null;
+    if (!found) {
+      return null;
+    }
+    const index = Number.parseInt(found.dataset.blockIndex ?? "", 10);
+    return Number.isFinite(index) ? index : null;
+  }, []);
+
+  const detectMarkdownVisibleBlock = useCallback(() => {
+    const view = markdownViewRef.current;
+    if (!view) {
+      return null;
+    }
+    const top = view.scrollDOM.scrollTop;
+    const topLineBlock = view.lineBlockAtHeight(top);
+    const topLine = view.state.doc.lineAt(topLineBlock.from).number;
+    return getBlockIndexByLine(markdownText, topLine);
+  }, [markdownText]);
+
   useEffect(() => {
-    if (!registerApplyScrollRatio) {
+    if (!registerScrollToBlock) {
       return;
     }
 
-    registerApplyScrollRatio((ratio) => {
-      const scroller = getActiveScroller();
-      if (!scroller) {
+    registerScrollToBlock((blockIndex) => {
+      if (blockIndex < 0) {
         return;
       }
       suppressRef.current = true;
-      applyScrollRatio(scroller, ratio);
+      if (viewMode === "markdown") {
+        const view = markdownViewRef.current;
+        const range = getBlockRangeByIndex(markdownText, blockIndex);
+        if (view && range) {
+          const safeLine = Math.min(Math.max(range.startLine, 1), view.state.doc.lines);
+          const pos = view.state.doc.line(safeLine).from;
+          view.dispatch({
+            effects: EditorView.scrollIntoView(pos, { y: "start" }),
+          });
+        }
+      } else {
+        const container = htmlScrollerRef.current;
+        const block = container?.querySelector<HTMLElement>(`.result-html-block[data-block-index="${blockIndex}"]`);
+        if (container && block) {
+          container.scrollTop = block.offsetTop;
+        }
+      }
       requestAnimationFrame(() => {
         suppressRef.current = false;
       });
     });
-  }, [getActiveScroller, registerApplyScrollRatio]);
+  }, [markdownText, registerScrollToBlock, viewMode]);
 
   useEffect(() => {
     const scroller = getActiveScroller();
-    if (!scroller || !onScrollRatioChange) {
+    if (!scroller || !onVisibleBlockChange) {
       return;
     }
 
@@ -76,14 +118,18 @@ export function ResultViewer({
       if (suppressRef.current) {
         return;
       }
-      onScrollRatioChange(calcScrollRatio(scroller));
+      if (viewMode === "markdown") {
+        onVisibleBlockChange(detectMarkdownVisibleBlock());
+      } else {
+        onVisibleBlockChange(detectHtmlVisibleBlock());
+      }
     };
 
     scroller.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       scroller.removeEventListener("scroll", onScroll);
     };
-  }, [getActiveScroller, markdownEditorReady, onScrollRatioChange]);
+  }, [detectHtmlVisibleBlock, detectMarkdownVisibleBlock, getActiveScroller, markdownEditorReady, onVisibleBlockChange, viewMode]);
 
   const selectLineExtension = useMemo(() => {
     return EditorView.domEventHandlers({
@@ -135,6 +181,7 @@ export function ResultViewer({
             selectLineExtension,
           ]}
           onCreateEditor={(view) => {
+            markdownViewRef.current = view;
             markdownScrollerRef.current = view.scrollDOM;
             setMarkdownEditorReady((value) => value + 1);
           }}
@@ -145,8 +192,17 @@ export function ResultViewer({
         <div
           ref={htmlScrollerRef}
           className="html-preview"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        >
+          {htmlBlocks.map((block) => (
+            <article
+              // 按块渲染，便于左右双栏按段落同步定位
+              key={block.index}
+              data-block-index={block.index}
+              className="result-html-block"
+              dangerouslySetInnerHTML={{ __html: block.html }}
+            />
+          ))}
+        </div>
       )}
     </section>
   );

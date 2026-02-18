@@ -17,22 +17,9 @@ interface LineNumberTextareaProps {
   placeholder?: string;
   className?: string;
   textareaRef?: MutableRefObject<HTMLTextAreaElement | null>;
-  onScrollRatioChange?: (ratio: number) => void;
-  registerApplyScrollRatio?: (apply: (ratio: number) => void) => void;
+  onVisibleLineChange?: (line: number) => void;
+  registerScrollToLine?: (scrollToLine: (line: number) => void) => void;
   highlightedRange?: { startLine: number; endLine: number } | null;
-}
-
-function calcRatio(textarea: HTMLTextAreaElement): number {
-  const max = textarea.scrollHeight - textarea.clientHeight;
-  if (max <= 0) {
-    return 0;
-  }
-  return textarea.scrollTop / max;
-}
-
-function applyRatio(textarea: HTMLTextAreaElement, ratio: number): void {
-  const max = textarea.scrollHeight - textarea.clientHeight;
-  textarea.scrollTop = max > 0 ? max * ratio : 0;
 }
 
 export function LineNumberTextarea({
@@ -44,13 +31,14 @@ export function LineNumberTextarea({
   placeholder,
   className,
   textareaRef,
-  onScrollRatioChange,
-  registerApplyScrollRatio,
+  onVisibleLineChange,
+  registerScrollToLine,
   highlightedRange,
 }: LineNumberTextareaProps) {
   const localRef = useRef<HTMLTextAreaElement | null>(null);
   const gutterRef = useRef<HTMLDivElement | null>(null);
   const suppressRef = useRef(false);
+  const lastVisibleLineRef = useRef(1);
 
   const numbers = useMemo(() => {
     const count = Math.max(1, value.split("\n").length);
@@ -58,17 +46,20 @@ export function LineNumberTextarea({
   }, [value]);
 
   useEffect(() => {
-    if (!registerApplyScrollRatio) {
+    if (!registerScrollToLine) {
       return;
     }
 
-    registerApplyScrollRatio((ratio) => {
+    registerScrollToLine((line) => {
       const textarea = localRef.current;
       if (!textarea) {
         return;
       }
+      const computed = window.getComputedStyle(textarea);
+      const parsedLineHeight = Number.parseFloat(computed.lineHeight);
+      const lineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 0 ? parsedLineHeight : 20;
       suppressRef.current = true;
-      applyRatio(textarea, ratio);
+      textarea.scrollTop = Math.max(0, (line - 1) * lineHeight);
       if (gutterRef.current) {
         gutterRef.current.scrollTop = textarea.scrollTop;
       }
@@ -76,7 +67,7 @@ export function LineNumberTextarea({
         suppressRef.current = false;
       });
     });
-  }, [registerApplyScrollRatio]);
+  }, [registerScrollToLine]);
 
   useEffect(() => {
     if (!highlightedRange || highlightedRange.startLine < 1) {
@@ -114,10 +105,19 @@ export function LineNumberTextarea({
     if (gutterRef.current) {
       gutterRef.current.scrollTop = textarea.scrollTop;
     }
-    if (suppressRef.current || !onScrollRatioChange) {
+    const computed = window.getComputedStyle(textarea);
+    const parsedLineHeight = Number.parseFloat(computed.lineHeight);
+    const lineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 0 ? parsedLineHeight : 20;
+    const visibleLine = Math.max(1, Math.floor(textarea.scrollTop / lineHeight) + 1);
+
+    if (!suppressRef.current && onVisibleLineChange && visibleLine !== lastVisibleLineRef.current) {
+      lastVisibleLineRef.current = visibleLine;
+      onVisibleLineChange(visibleLine);
+    }
+
+    if (suppressRef.current) {
       return;
     }
-    onScrollRatioChange(calcRatio(textarea));
   };
 
   const handleTextareaRef = (node: HTMLTextAreaElement | null) => {

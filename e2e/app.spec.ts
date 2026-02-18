@@ -90,6 +90,8 @@ test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => 
   await expect(page.getByText("iTranslate 初始化向导")).toBeVisible();
   await page.getByRole("button", { name: "验证并进入" }).click();
   await expect(page.getByRole("button", { name: "马上翻译" })).toBeVisible();
+  await expect(page.getByLabel("源语言")).toBeVisible();
+  await expect(page.getByLabel("目标语言")).toBeVisible();
   await page.getByRole("button", { name: "展开底部面板" }).click();
   const dockResize = await page.evaluate(async () => {
     const dock = document.querySelector(".bottom-dock") as HTMLElement | null;
@@ -129,11 +131,28 @@ test("按章节翻译并覆盖历史标题与分页场景", async ({ page }) => 
 
   await page.getByRole("button", { name: "查看" }).first().click();
   await expect(page.getByRole("button", { name: "返回历史列表" })).toBeVisible();
+  await expect(page.locator(".top-nav")).toBeVisible();
+  await expect(page.getByLabel("源语言")).toBeVisible();
+  await expect(page.getByLabel("目标语言")).toBeVisible();
   await expect(page.getByLabel("源语言")).toBeDisabled();
   await expect(page.getByLabel("目标语言")).toBeDisabled();
 
+  await page.evaluate(() => {
+    const right = document.querySelector(".result-panel .cm-scroller, .result-panel .html-preview") as HTMLElement | null;
+    if (right) {
+      right.scrollTop = Math.max(300, right.scrollHeight / 2);
+      right.dispatchEvent(new Event("scroll", { bubbles: true }));
+    }
+  });
+  await expect(page.locator(".top-nav")).toBeVisible();
+
   await page.getByRole("button", { name: "返回历史列表" }).click();
   await expect(page.locator(".pagination .active")).toHaveText("2");
+
+  await page.getByRole("button", { name: "查看" }).first().click();
+  await page.getByRole("button", { name: "新建翻译" }).click();
+  await expect(page.getByRole("heading", { name: "待翻译内容" })).toBeVisible();
+  await expect(page.getByPlaceholder("支持粘贴普通文本或 HTML。快捷键粘贴会自动识别 HTML 并转 Markdown")).toHaveValue("");
 });
 
 test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", async ({ page }) => {
@@ -189,7 +208,10 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
   await expect(page.getByText("已将 HTML 转换为 Markdown 后粘贴，稍后自动翻译")).toBeVisible();
   await expect(page.locator(".status-bar")).toContainText("翻译完成");
   await expect(page.locator(".status-bar .status-cell")).toHaveCount(3);
+  await expect(page.locator(".nav-quote .quote-text")).toBeVisible();
+  await page.getByRole("button", { name: "折叠底部面板" }).click();
   await page.getByRole("button", { name: "执行日志" }).click();
+  await expect(page.getByRole("button", { name: "折叠底部面板" })).toBeVisible();
   await expect(page.locator(".log-table")).toBeVisible();
   await page.getByRole("button", { name: "状态" }).click();
   await expect(page.locator(".input-panel .line-gutter")).toBeVisible();
@@ -243,7 +265,7 @@ test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", a
     const rightMax = right.scrollHeight - right.clientHeight;
     const leftMax = left.scrollHeight - left.clientHeight;
     const before = left.scrollTop;
-    right.scrollTop = Math.max(240, right.scrollHeight);
+    right.scrollTop = Math.max(240, right.scrollHeight / 3);
     right.dispatchEvent(new Event("scroll", { bubbles: true }));
     return { ok: true, before, after: left.scrollTop, rightMax, leftMax };
   });
