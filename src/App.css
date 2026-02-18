@@ -3,6 +3,7 @@
   max-width: none;
   margin: 0;
   padding: 6px;
+  overscroll-behavior: none;
 }
 
 .full-screen {
@@ -20,6 +21,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  overscroll-behavior: none;
 }
 
 .translator-view {
@@ -29,18 +31,45 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 6px;
+  overscroll-behavior: none;
 }
 
 .top-nav {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 5px 8px;
   flex: 0 0 auto;
+}
+
+.nav-quote {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+  color: #475569;
+  font-size: 12px;
+}
+
+.quote-text,
+.quote-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-text {
+  color: #334155;
+}
+
+.quote-meta {
+  color: #64748b;
 }
 
 .nav-buttons {
@@ -165,6 +194,7 @@ textarea {
   min-height: 0;
   height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
@@ -249,6 +279,10 @@ textarea {
   min-height: 0;
 }
 
+.result-panel .cm-scroller {
+  overscroll-behavior: contain;
+}
+
 .switches {
   display: flex;
   gap: 8px;
@@ -262,6 +296,19 @@ textarea {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.result-html-block {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.result-html-block:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
 }
 
 .history-header {
@@ -277,6 +324,12 @@ textarea {
   overflow: hidden;
 }
 
+.history-detail {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+}
+
 .history-filters {
   display: grid;
   grid-template-columns: minmax(220px, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -287,6 +340,7 @@ textarea {
 .history-table-wrap {
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .history-table {
@@ -428,6 +482,7 @@ textarea {
   display: block;
   max-height: 160px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .log-table tr {
@@ -553,5 +608,9 @@ textarea {
 
   .bottom-dock {
     height: auto !important;
+  }
+
+  .nav-quote {
+    display: none;
   }
 }

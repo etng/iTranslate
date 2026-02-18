@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { LanguageOption, TranslationHistoryItem } from "../types";
 import { LineNumberTextarea } from "./LineNumberTextarea";
 import { ResultViewer } from "./ResultViewer";
@@ -14,6 +14,7 @@ interface HistoryDetailProps {
   viewMode: "markdown" | "html";
   onChangeViewMode: (mode: "markdown" | "html") => void;
   onBack: () => void;
+  onStartNew: () => void;
   onEdit: () => void;
 }
 
@@ -23,11 +24,22 @@ export function HistoryDetail({
   viewMode,
   onChangeViewMode,
   onBack,
+  onStartNew,
   onEdit,
 }: HistoryDetailProps) {
-  const applyLeftScrollRatioRef = useRef<(ratio: number) => void>(() => {});
-  const applyRightScrollRatioRef = useRef<(ratio: number) => void>(() => {});
+  const applyLeftScrollToLineRef = useRef<(line: number) => void>(() => {});
+  const applyRightScrollToBlockRef = useRef<(blockIndex: number) => void>(() => {});
+  const blockSyncSourceRef = useRef<"left" | "right" | null>(null);
+  const blockSyncResetTimerRef = useRef<number | null>(null);
   const [linkedRange, setLinkedRange] = useState<MarkdownBlockRange | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blockSyncResetTimerRef.current) {
+        window.clearTimeout(blockSyncResetTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSelectResultLine = (line: number) => {
     const blockIndex = getBlockIndexByLine(item.outputMarkdown, line);
@@ -38,12 +50,52 @@ export function HistoryDetail({
     setLinkedRange(getBlockRangeByIndex(item.inputMarkdown, blockIndex));
   };
 
+  const resetBlockSyncSource = useCallback((source: "left" | "right") => {
+    if (blockSyncResetTimerRef.current) {
+      window.clearTimeout(blockSyncResetTimerRef.current);
+    }
+    blockSyncResetTimerRef.current = window.setTimeout(() => {
+      if (blockSyncSourceRef.current === source) {
+        blockSyncSourceRef.current = null;
+      }
+    }, 120);
+  }, []);
+
+  const handleLeftVisibleLineChange = useCallback((line: number) => {
+    if (blockSyncSourceRef.current === "right") {
+      return;
+    }
+    const blockIndex = getBlockIndexByLine(item.inputMarkdown, line);
+    if (blockIndex == null) {
+      return;
+    }
+    blockSyncSourceRef.current = "left";
+    applyRightScrollToBlockRef.current(blockIndex);
+    resetBlockSyncSource("left");
+  }, [item.inputMarkdown, resetBlockSyncSource]);
+
+  const handleRightVisibleBlockChange = useCallback((blockIndex: number | null) => {
+    if (blockSyncSourceRef.current === "left" || blockIndex == null) {
+      return;
+    }
+    const range = getBlockRangeByIndex(item.inputMarkdown, blockIndex);
+    if (!range) {
+      return;
+    }
+    blockSyncSourceRef.current = "right";
+    applyLeftScrollToLineRef.current(range.startLine);
+    resetBlockSyncSource("right");
+  }, [item.inputMarkdown, resetBlockSyncSource]);
+
   return (
     <section className="history-detail">
       <header className="detail-header">
         <div className="nav-buttons">
           <button type="button" onClick={onBack}>
             返回历史列表
+          </button>
+          <button type="button" onClick={onStartNew}>
+            新建翻译
           </button>
           <button type="button" onClick={onEdit}>
             继续编辑并重译
@@ -83,9 +135,9 @@ export function HistoryDetail({
             value={item.inputMarkdown}
             readOnly
             highlightedRange={linkedRange}
-            onScrollRatioChange={(ratio) => applyRightScrollRatioRef.current(ratio)}
-            registerApplyScrollRatio={(apply) => {
-              applyLeftScrollRatioRef.current = apply;
+            onVisibleLineChange={handleLeftVisibleLineChange}
+            registerScrollToLine={(scrollToLine) => {
+              applyLeftScrollToLineRef.current = scrollToLine;
             }}
           />
         </section>
@@ -94,9 +146,9 @@ export function HistoryDetail({
           markdownText={item.outputMarkdown}
           viewMode={viewMode}
           onChangeViewMode={onChangeViewMode}
-          onScrollRatioChange={(ratio) => applyLeftScrollRatioRef.current(ratio)}
-          registerApplyScrollRatio={(apply) => {
-            applyRightScrollRatioRef.current = apply;
+          onVisibleBlockChange={handleRightVisibleBlockChange}
+          registerScrollToBlock={(scrollToBlock) => {
+            applyRightScrollToBlockRef.current = scrollToBlock;
           }}
           onSelectLine={handleSelectResultLine}
         />
