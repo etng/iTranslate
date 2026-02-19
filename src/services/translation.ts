@@ -36,6 +36,10 @@ function resolveLanguageCode(languageName: string): string {
   return LANGUAGE_CODE_MAP[languageName] ?? languageName.toLowerCase().replace(/\s+/g, "-");
 }
 
+export function shouldSkipTranslation(sourceLanguage: string, targetLanguage: string): boolean {
+  return sourceLanguage.trim().toLowerCase() === targetLanguage.trim().toLowerCase();
+}
+
 export function buildTranslategemmaPrompt(
   sourceLanguage: string,
   targetLanguage: string,

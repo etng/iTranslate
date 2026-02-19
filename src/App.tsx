@@ -26,7 +26,7 @@ import type {
   UserPreferences,
 } from "./types";
 import { preprocessInput } from "./services/preprocess";
-import { translateWithModel } from "./services/translation";
+import { shouldSkipTranslation, translateWithModel } from "./services/translation";
 import {
   createAutoTitle,
   deleteHistoryById,
@@ -419,13 +419,16 @@ function App() {
 
       try {
         const preprocessed = preprocessInput(rawInput);
-        const result = await translateWithModel({
-          sourceLanguage: effectiveSourceLanguage,
-          targetLanguage: effectiveTargetLanguage,
-          inputRaw: rawInput,
-          inputMarkdown: preprocessed.markdown,
-          modelConfig: selectedEngine,
-        });
+        const skipTranslation = shouldSkipTranslation(effectiveSourceLanguage, effectiveTargetLanguage);
+        const result = skipTranslation
+          ? { outputMarkdown: preprocessed.markdown, usedPrompt: "" }
+          : await translateWithModel({
+            sourceLanguage: effectiveSourceLanguage,
+            targetLanguage: effectiveTargetLanguage,
+            inputRaw: rawInput,
+            inputMarkdown: preprocessed.markdown,
+            modelConfig: selectedEngine,
+          });
 
         setOutputMarkdown(result.outputMarkdown);
         setLinkedRange(null);
@@ -443,8 +446,11 @@ function App() {
           });
           const next = await replaceHistory(replacedItem);
           setHistory(next);
-          setStatusText("翻译完成，已更新当前历史记录");
+          setStatusText(skipTranslation ? "源语言与目标语言一致，已跳过模型翻译并更新记录" : "翻译完成，已更新当前历史记录");
           appendLog("INFO", `已更新历史记录：${replacedItem.title}`);
+          if (skipTranslation) {
+            appendLog("INFO", `[${requestId}] 检测到同语种，跳过模型调用`);
+          }
           appendLog("INFO", `[${requestId}] 请求完成，耗时 ${Math.round(performance.now() - startAt)}ms`);
         } else {
           const historyItem = createHistoryItem({
@@ -458,8 +464,15 @@ function App() {
           });
           const next = await upsertHistory(historyItem);
           setHistory(next);
-          setStatusText(preprocessed.detectedHtml ? "翻译完成（输入已先转换为 Markdown）" : "翻译完成");
+          if (skipTranslation) {
+            setStatusText("源语言与目标语言一致，已跳过模型翻译");
+          } else {
+            setStatusText(preprocessed.detectedHtml ? "翻译完成（输入已先转换为 Markdown）" : "翻译完成");
+          }
           appendLog("INFO", `翻译完成并写入历史：${historyItem.title}`);
+          if (skipTranslation) {
+            appendLog("INFO", `[${requestId}] 检测到同语种，跳过模型调用`);
+          }
           appendLog("INFO", `[${requestId}] 请求完成，耗时 ${Math.round(performance.now() - startAt)}ms`);
         }
         setQuoteHistoryTitle(null);
@@ -702,6 +715,11 @@ function App() {
       });
 
       const translatedItems: TranslationHistoryItem[] = [];
+      const skipTranslation = shouldSkipTranslation(payload.sourceLanguage, payload.targetLanguage);
+      if (skipTranslation) {
+        appendLog("INFO", "EPUB 闭环检测到同语种，批量跳过模型调用");
+      }
+
       for (let index = 0; index < imported.chapters.length; index += 1) {
         const chapter = imported.chapters[index];
         setEpubPipelineProgress({
@@ -710,13 +728,15 @@ function App() {
           message: `翻译章节 ${chapter.fileName}`,
         });
 
-        const result = await translateWithModel({
-          sourceLanguage: payload.sourceLanguage,
-          targetLanguage: payload.targetLanguage,
-          inputRaw: chapter.html,
-          inputMarkdown: chapter.markdown,
-          modelConfig: engine,
-        });
+        const result = skipTranslation
+          ? { outputMarkdown: chapter.markdown, usedPrompt: "" }
+          : await translateWithModel({
+            sourceLanguage: payload.sourceLanguage,
+            targetLanguage: payload.targetLanguage,
+            inputRaw: chapter.html,
+            inputMarkdown: chapter.markdown,
+            modelConfig: engine,
+          });
 
         const historyItem = createHistoryItem({
           title: chapter.title,

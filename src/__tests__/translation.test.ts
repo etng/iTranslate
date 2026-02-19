@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTranslategemmaPrompt } from "../services/translation";
+import { buildTranslategemmaPrompt, shouldSkipTranslation } from "../services/translation";
 
 describe("buildTranslategemmaPrompt", () => {
   it("包含 translategemma 指定 prompt format 前缀", () => {
@@ -10,5 +10,16 @@ describe("buildTranslategemmaPrompt", () => {
       ),
     ).toBe(true);
     expect(prompt.endsWith("\n\n\nHello")).toBe(true);
+  });
+});
+
+describe("shouldSkipTranslation", () => {
+  it("源语言与目标语言一致时返回 true", () => {
+    expect(shouldSkipTranslation("Japanese", "Japanese")).toBe(true);
+    expect(shouldSkipTranslation(" japanese ", "JAPANESE")).toBe(true);
+  });
+
+  it("源语言与目标语言不一致时返回 false", () => {
+    expect(shouldSkipTranslation("English", "Japanese")).toBe(false);
   });
 });
