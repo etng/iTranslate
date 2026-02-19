@@ -78,6 +78,8 @@
 - [x] EPUB 闭环翻译改为“逐章节落历史”，避免中途失败导致历史丢失
 - [x] EPUB 闭环失败增加前台 `alert` 提示，避免仅日志可见
 - [x] 修复 EPUB 导出 XHTML 的 `img` 空标签闭合，解决 iBooks XML 解析报错
+- [x] EPUB 历史标题与文件来源信息分离（标题保留章节名，来源单独记录）
+- [x] 导出 EPUB 向导支持手动排序（上移/下移），避免同名章节与普通记录冲突
 说明：
 - 分包结果：主包 `index` 从约 `1070.38 kB` 降至约 `182.19 kB`，其余拆分到 `vendor/editor/markdown/tauri`。
 - `Updater` 已配置：`src-tauri/tauri.conf.json` 已写入 `pubkey` 与 `latest.json` 地址；私钥文件仅本地保存并已通过 `.gitignore` 排除，应在 CI 中注入 `TAURI_SIGNING_PRIVATE_KEY*` 环境变量。
