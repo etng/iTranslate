@@ -51,9 +51,42 @@ function normalizeXhtmlEntities(html: string): string {
   });
 }
 
+function normalizeVoidTagsForXhtml(html: string): string {
+  const voidTags = [
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+  ];
+
+  return voidTags.reduce((result, tagName) => {
+    const pattern = new RegExp(`<${tagName}(\\s[^>]*?)?>`, "gi");
+    return result.replace(pattern, (full, attrs: string | undefined) => {
+      if (full.endsWith("/>")) {
+        return full;
+      }
+      return `<${tagName}${attrs ?? ""} />`;
+    });
+  }, html);
+}
+
+function normalizeHtmlFragmentForXhtml(html: string): string {
+  return normalizeVoidTagsForXhtml(normalizeXhtmlEntities(html));
+}
+
 function createChapterXhtml(chapter: EpubChapter): string {
-  const sourceHtml = normalizeXhtmlEntities(renderMarkdownToHtml(chapter.sourceMarkdown));
-  const targetHtml = normalizeXhtmlEntities(renderMarkdownToHtml(chapter.targetMarkdown));
+  const sourceHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.sourceMarkdown));
+  const targetHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.targetMarkdown));
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN">
