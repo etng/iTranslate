@@ -151,6 +151,7 @@ export function EpubImportWizard({
                 进度：{progress.current}/{progress.total} {progress.message}
               </p>
               <progress
+                className="wizard-progress"
                 max={Math.max(1, progress.total)}
                 value={Math.min(progress.current, Math.max(1, progress.total))}
                 aria-label="EPUB闭环进度"

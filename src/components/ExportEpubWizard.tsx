@@ -223,7 +223,12 @@ export function ExportEpubWizard({
             {exporting ? (
               <div>
                 <p className="status-label">打包进度：{Math.round(exportProgress)}%</p>
-                <progress max={100} value={Math.max(0, Math.min(100, exportProgress))} aria-label="导出EPUB进度" />
+                <progress
+                  className="wizard-progress"
+                  max={100}
+                  value={Math.max(0, Math.min(100, exportProgress))}
+                  aria-label="导出EPUB进度"
+                />
               </div>
             ) : null}
             <div className="wizard-preview">

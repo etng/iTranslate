@@ -733,11 +733,27 @@ function App() {
 
       for (let index = 0; index < chaptersToProcess.length; index += 1) {
         const chapter = chaptersToProcess[index];
+        const sourceLabel = buildEpubSourceLabel(imported.fileNameBase, chapter.fileName);
+        const existingMatch = history.find((item) => (
+          item.sourceType === "epub"
+          && item.sourceBookName === imported.fileNameBase
+          && item.sourceChapterFile === sourceLabel
+          && item.sourceLanguage === payload.sourceLanguage
+          && item.targetLanguage === payload.targetLanguage
+          && item.outputMarkdown.trim().length > 0
+        ));
+
         setEpubPipelineProgress({
           current: index + 1,
           total: chaptersToProcess.length,
-          message: `翻译章节 ${chapter.fileName}`,
+          message: existingMatch ? `复用章节 ${chapter.fileName}` : `翻译章节 ${chapter.fileName}`,
         });
+
+        if (existingMatch) {
+          translatedItems.push(existingMatch);
+          appendLog("INFO", `复用历史译文：${sourceLabel}`);
+          continue;
+        }
 
         const result = skipTranslation
           ? { outputMarkdown: chapter.markdown, usedPrompt: "" }
@@ -759,7 +775,7 @@ function App() {
           engine,
           sourceType: "epub",
           sourceBookName: imported.fileNameBase,
-          sourceChapterFile: buildEpubSourceLabel(imported.fileNameBase, chapter.fileName),
+          sourceChapterFile: sourceLabel,
           sourceChapterIndex: chapter.order,
         });
         translatedItems.push(historyItem);
@@ -799,7 +815,7 @@ function App() {
     } finally {
       setEpubPipelineRunning(false);
     }
-  }, [appendLog, availableEngines, preferences.epubDefaultAuthor, preferences.epubDefaultExportDir, preferences.epubPaidUnlocked]);
+  }, [appendLog, availableEngines, history, preferences.epubDefaultAuthor, preferences.epubDefaultExportDir, preferences.epubPaidUnlocked]);
 
   if (!setupDone) {
     return <SetupWizard modelConfig={modelConfig} onComplete={handleEnterApp} />;
