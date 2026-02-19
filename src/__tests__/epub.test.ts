@@ -46,4 +46,29 @@ describe("epub 导出 XHTML 兼容性", () => {
     const doc = parser.parseFromString(xhtml!, "application/xml");
     expect(doc.querySelector("parsererror")).toBeNull();
   });
+
+  it("日文竖排模式应输出 rtl 翻页与纵向排版样式", async () => {
+    const chapter = createHistoryItem(
+      "ja-case",
+      "## Chapter I\n\nThere was no possibility of taking a walk that day.",
+      "## 第1章\n\nその日は散歩に出ることはできなかった。",
+    );
+    const blob = await buildBilingualEpubBlob([chapter], {
+      title: "日本語テスト本",
+      author: "著者",
+      language: "ja",
+      identifier: "ja-book-id",
+      layoutMode: "ja-vertical",
+    });
+
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const opf = await zip.file("OEBPS/content.opf")?.async("string");
+    const styles = await zip.file("OEBPS/styles.css")?.async("string");
+    const chapterXhtml = await zip.file("OEBPS/chapter-1.xhtml")?.async("string");
+
+    expect(opf).toContain('page-progression-direction="rtl"');
+    expect(styles).toContain("writing-mode:vertical-rl");
+    expect(styles).toContain("direction:rtl");
+    expect(chapterXhtml).toContain('xml:lang="ja"');
+  });
 });

@@ -129,6 +129,15 @@ function formatQuoteHistoryTitle(date: Date): string {
   return `名言警句翻译${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日${pad(date.getHours())}时${pad(date.getMinutes())}分${pad(date.getSeconds())}秒`;
 }
 
+function toEpubLanguageCode(language: string): string {
+  const value = language.trim().toLowerCase();
+  if (value === "japanese" || value === "ja" || value === "ja-jp") return "ja";
+  if (value === "simplified chinese" || value === "zh-cn") return "zh-CN";
+  if (value === "traditional chinese" || value === "zh-tw") return "zh-TW";
+  if (value === "english" || value === "en") return "en";
+  return language;
+}
+
 function App() {
   const [setupDone, setSetupDone] = useState(localStorage.getItem(SETUP_KEY) === "1");
   const [modelConfig, setModelConfig] = useState<TranslatorModelConfig>(DEFAULT_MODEL_CONFIG);
@@ -735,8 +744,9 @@ function App() {
       const exportBlob = await buildBilingualEpubBlob(translatedItems, {
         title: `${imported.metaTitle || imported.fileNameBase}（已翻译）`,
         author: imported.metaAuthor || preferences.epubDefaultAuthor || "iTranslate",
-        language: imported.metaLanguage || payload.targetLanguage,
+        language: toEpubLanguageCode(imported.metaLanguage || payload.targetLanguage),
         identifier: crypto.randomUUID(),
+        layoutMode: payload.targetLanguage === "Japanese" ? "ja-vertical" : "default",
       });
       const exportName = buildTranslatedEpubFileName(imported.fileNameBase);
       const savedPath = await saveEpubByPicker(exportBlob, exportName, preferences.epubDefaultExportDir);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { TranslationHistoryItem } from "../types";
-import { buildBilingualEpubBlob, saveEpubByPicker } from "../services/epub";
+import { buildBilingualEpubBlob, saveEpubByPicker, type EpubLayoutMode } from "../services/epub";
 
 interface ExportEpubWizardProps {
   open: boolean;
@@ -31,6 +31,7 @@ export function ExportEpubWizard({
   const [bookTitle, setBookTitle] = useState("双语译文合集");
   const [author, setAuthor] = useState(defaultAuthor || "iTranslate");
   const [language, setLanguage] = useState("zh-CN");
+  const [layoutMode, setLayoutMode] = useState<EpubLayoutMode>("default");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [chapterOrderMode, setChapterOrderMode] = useState<ChapterOrderMode>("auto");
   const [manualOrderIds, setManualOrderIds] = useState<string[]>([]);
@@ -76,10 +77,20 @@ export function ExportEpubWizard({
     setAuthor(defaultAuthor || "iTranslate");
     setSetDefaultAuthor(false);
     setSetDefaultDir(false);
+    setLanguage("zh-CN");
+    setLayoutMode("default");
     setChapterOrderMode("auto");
     setManualOrderIds(defaultChapterItems.map((item) => item.id));
     setStep(1);
   }, [defaultAuthor, defaultChapterItems, open]);
+
+  useEffect(() => {
+    if (language.toLowerCase().startsWith("ja")) {
+      setLayoutMode("ja-vertical");
+    } else if (layoutMode === "ja-vertical") {
+      setLayoutMode("default");
+    }
+  }, [language, layoutMode]);
 
   if (!open) {
     return null;
@@ -96,6 +107,7 @@ export function ExportEpubWizard({
         author: author.trim() || "iTranslate",
         language,
         identifier: crypto.randomUUID(),
+        layoutMode,
       });
       const safeTitle = (bookTitle.trim() || "双语译文合集").replace(/[\\/:*?"<>|]/g, "_");
       const savedPath = await saveEpubByPicker(blob, `${safeTitle}.epub`, defaultDir);
@@ -144,6 +156,13 @@ export function ExportEpubWizard({
             <label>
               语言代码
               <input value={language} onChange={(event) => setLanguage(event.target.value)} />
+            </label>
+            <label>
+              阅读布局
+              <select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as EpubLayoutMode)}>
+                <option value="default">标准横排</option>
+                <option value="ja-vertical">日文竖排（右到左段落流）</option>
+              </select>
             </label>
             <label>
               默认导出目录（当前）

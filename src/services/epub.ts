@@ -12,11 +12,14 @@ interface EpubChapter {
   targetMarkdown: string;
 }
 
+export type EpubLayoutMode = "default" | "ja-vertical";
+
 export interface EpubOptions {
   title: string;
   author: string;
   language: string;
   identifier: string;
+  layoutMode?: EpubLayoutMode;
 }
 
 function xmlEscape(text: string): string {
@@ -84,12 +87,12 @@ function normalizeHtmlFragmentForXhtml(html: string): string {
   return normalizeVoidTagsForXhtml(normalizeXhtmlEntities(html));
 }
 
-function createChapterXhtml(chapter: EpubChapter): string {
+function createChapterXhtml(chapter: EpubChapter, language: string): string {
   const sourceHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.sourceMarkdown));
   const targetHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.targetMarkdown));
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${xmlEscape(language)}">
   <head>
     <meta charset="utf-8"/>
     <title>${xmlEscape(chapter.title)}</title>
@@ -109,10 +112,25 @@ function createChapterXhtml(chapter: EpubChapter): string {
 </html>`;
 }
 
+function buildStyles(layoutMode: EpubLayoutMode): string {
+  if (layoutMode === "ja-vertical") {
+    return [
+      "body{font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;text-orientation:mixed;direction:rtl;}",
+      "h1,h2{page-break-after:avoid;line-break:strict;}",
+      "section{margin-left:1.2em;}",
+      "p{margin:0 0 0.9em 0;}",
+      "img{max-inline-size:80%;height:auto;}",
+    ].join("");
+  }
+  return "body{font-family:serif;line-height:1.6;}h1,h2{page-break-after:avoid;}section{margin-bottom:1.5em;}";
+}
+
 export async function buildBilingualEpubBlob(
   historyItems: TranslationHistoryItem[],
   options: EpubOptions,
 ): Promise<Blob> {
+  const layoutMode = options.layoutMode ?? "default";
+  const pageProgressionDirection = layoutMode === "ja-vertical" ? "rtl" : "ltr";
   const chapters: EpubChapter[] = historyItems.map((item, index) => ({
     id: `chap-${index + 1}`,
     title: item.title || `章节 ${index + 1}`,
@@ -135,13 +153,10 @@ export async function buildBilingualEpubBlob(
   );
 
   const oebps = zip.folder("OEBPS");
-  oebps?.file(
-    "styles.css",
-    "body{font-family:serif;line-height:1.6;}h1,h2{page-break-after:avoid;}section{margin-bottom:1.5em;}",
-  );
+  oebps?.file("styles.css", buildStyles(layoutMode));
 
   chapters.forEach((chapter, index) => {
-    oebps?.file(`chapter-${index + 1}.xhtml`, createChapterXhtml(chapter));
+    oebps?.file(`chapter-${index + 1}.xhtml`, createChapterXhtml(chapter, options.language));
   });
 
   const manifestItems = chapters
@@ -173,7 +188,7 @@ ${navPoints}
   oebps?.file(
     "nav.xhtml",
     `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${xmlEscape(options.language)}">
   <head><meta charset="utf-8"/><title>目录</title></head>
   <body>
     <nav epub:type="toc" xmlns:epub="http://www.idpf.org/2007/ops">
@@ -200,7 +215,7 @@ ${navPoints}
     <item id="css" href="styles.css" media-type="text/css"/>
     ${manifestItems}
   </manifest>
-  <spine toc="ncx">
+  <spine toc="ncx" page-progression-direction="${pageProgressionDirection}">
     ${spineItems}
   </spine>
 </package>`,
