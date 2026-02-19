@@ -143,11 +143,13 @@ function createChapterXhtml(chapter: EpubChapter, language: string, contentMode:
 function buildStyles(layoutMode: EpubLayoutMode): string {
   if (layoutMode === "ja-vertical") {
     return [
+      "html{writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;text-orientation:mixed;}",
       "html,body{margin:0;padding:0;}",
-      "body{display:block;font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;text-orientation:mixed;text-align:start;text-justify:auto;}",
+      "body{display:block;height:auto;min-height:0;font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:inherit;-epub-writing-mode:inherit;-webkit-writing-mode:inherit;text-orientation:inherit;text-align:start;}",
+      "h1,h2,section,.translated-only,p,blockquote,ul,ol,li{writing-mode:inherit;-epub-writing-mode:inherit;-webkit-writing-mode:inherit;text-orientation:inherit;text-align:start;}",
       "h1,h2{page-break-after:avoid;line-break:strict;}",
-      "section,.translated-only{margin-left:1.2em;break-inside:avoid;writing-mode:inherit;-epub-writing-mode:inherit;-webkit-writing-mode:inherit;text-align:start;}",
-      "p{margin-block-start:0;margin-block-end:0.9em;}",
+      "section,.translated-only{margin-inline-start:1.2em;break-inside:avoid;}",
+      "p{margin:0 0 0.9em 0;}",
       "img{max-inline-size:80%;height:auto;}",
     ].join("");
   }

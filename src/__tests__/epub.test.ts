@@ -69,6 +69,9 @@ describe("epub 导出 XHTML 兼容性", () => {
     const chapterXhtml = await zip.file("OEBPS/chapter-1.xhtml")?.async("string");
 
     expect(opf).toContain('page-progression-direction="rtl"');
+    expect(styles).toContain("html{writing-mode:vertical-rl");
+    expect(styles).toContain("body{display:block");
+    expect(styles).toContain("writing-mode:inherit");
     expect(styles).toContain("writing-mode:vertical-rl");
     expect(styles).not.toContain("direction:rtl");
     expect(chapterXhtml).toContain('xml:lang="ja"');
