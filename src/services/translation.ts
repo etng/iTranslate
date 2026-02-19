@@ -9,6 +9,9 @@ interface TranslateCommandPayload {
   apiToken?: string;
   username?: string;
   password?: string;
+  requestId?: string;
+  chunkIndex?: number;
+  totalChunks?: number;
 }
 
 interface TranslateCommandResult {
@@ -151,7 +154,10 @@ export async function translateWithModel(request: TranslateRequest): Promise<Tra
   }
 
   const translatedChunks: string[] = [];
-  for (const chunkPrompt of prompts) {
+  for (let index = 0; index < prompts.length; index += 1) {
+    const chunkPrompt = prompts[index];
+    const startedAt = performance.now();
+    request.onChunkProgress?.({ current: index + 1, total: prompts.length, phase: "start" });
     const result = await invoke<TranslateCommandResult>("translate_text", {
       payload: {
         endpoint: request.modelConfig.endpoint,
@@ -160,7 +166,16 @@ export async function translateWithModel(request: TranslateRequest): Promise<Tra
         apiToken: request.modelConfig.apiToken,
         username: request.modelConfig.username,
         password: request.modelConfig.password,
+        requestId: request.requestId,
+        chunkIndex: index + 1,
+        totalChunks: prompts.length,
       } satisfies TranslateCommandPayload,
+    });
+    request.onChunkProgress?.({
+      current: index + 1,
+      total: prompts.length,
+      phase: "done",
+      elapsedMs: Math.round(performance.now() - startedAt),
     });
     translatedChunks.push(result.text.trim());
   }

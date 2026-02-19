@@ -25,11 +25,20 @@ export interface TranslateRequest {
   inputRaw: string;
   inputMarkdown: string;
   modelConfig: TranslatorModelConfig;
+  requestId?: string;
+  onChunkProgress?: (event: TranslateChunkProgress) => void;
 }
 
 export interface TranslateResult {
   outputMarkdown: string;
   usedPrompt: string;
+}
+
+export interface TranslateChunkProgress {
+  current: number;
+  total: number;
+  phase: "start" | "done";
+  elapsedMs?: number;
 }
 
 export interface TranslationHistoryItem {

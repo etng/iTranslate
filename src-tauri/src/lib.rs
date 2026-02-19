@@ -21,6 +21,9 @@ struct TranslatePayload {
   api_token: Option<String>,
   username: Option<String>,
   password: Option<String>,
+  request_id: Option<String>,
+  chunk_index: Option<u32>,
+  total_chunks: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -215,7 +218,10 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
 
   let started_at = Instant::now();
   log::info!(
-    "translate_text start endpoint={} model={} prompt_chars={}",
+    "translate_text start request_id={} chunk={}/{} endpoint={} model={} prompt_chars={}",
+    payload.request_id.as_deref().unwrap_or("-"),
+    payload.chunk_index.unwrap_or(1),
+    payload.total_chunks.unwrap_or(1),
     payload.endpoint,
     payload.model,
     payload.prompt.chars().count()
@@ -257,7 +263,10 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
         if attempt < TRANSLATE_MAX_RETRY_ATTEMPTS {
           let backoff_ms = 400 * attempt as u64;
           log::warn!(
-            "translate_text request error endpoint={} attempt={}/{} backoff_ms={} error={}",
+            "translate_text request error request_id={} chunk={}/{} endpoint={} attempt={}/{} backoff_ms={} error={}",
+            payload.request_id.as_deref().unwrap_or("-"),
+            payload.chunk_index.unwrap_or(1),
+            payload.total_chunks.unwrap_or(1),
             endpoint,
             attempt,
             TRANSLATE_MAX_RETRY_ATTEMPTS,
@@ -268,7 +277,10 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
           continue;
         }
         log::error!(
-          "translate_text request error endpoint={} attempt={}/{} error={}",
+          "translate_text request error request_id={} chunk={}/{} endpoint={} attempt={}/{} error={}",
+          payload.request_id.as_deref().unwrap_or("-"),
+          payload.chunk_index.unwrap_or(1),
+          payload.total_chunks.unwrap_or(1),
           endpoint,
           attempt,
           TRANSLATE_MAX_RETRY_ATTEMPTS,
@@ -289,7 +301,10 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
       if status.is_server_error() && attempt < TRANSLATE_MAX_RETRY_ATTEMPTS {
         let backoff_ms = 400 * attempt as u64;
         log::warn!(
-          "translate_text server error endpoint={} attempt={}/{} status={} backoff_ms={} body={}",
+          "translate_text server error request_id={} chunk={}/{} endpoint={} attempt={}/{} status={} backoff_ms={} body={}",
+          payload.request_id.as_deref().unwrap_or("-"),
+          payload.chunk_index.unwrap_or(1),
+          payload.total_chunks.unwrap_or(1),
           endpoint,
           attempt,
           TRANSLATE_MAX_RETRY_ATTEMPTS,
@@ -302,7 +317,10 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
       }
 
       log::error!(
-        "translate_text bad status endpoint={} attempt={}/{} status={} body={}",
+        "translate_text bad status request_id={} chunk={}/{} endpoint={} attempt={}/{} status={} body={}",
+        payload.request_id.as_deref().unwrap_or("-"),
+        payload.chunk_index.unwrap_or(1),
+        payload.total_chunks.unwrap_or(1),
         endpoint,
         attempt,
         TRANSLATE_MAX_RETRY_ATTEMPTS,
@@ -322,7 +340,10 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
       })?;
 
     log::info!(
-      "translate_text done endpoint={} model={} elapsed_ms={} attempts={}",
+      "translate_text done request_id={} chunk={}/{} endpoint={} model={} elapsed_ms={} attempts={}",
+      payload.request_id.as_deref().unwrap_or("-"),
+      payload.chunk_index.unwrap_or(1),
+      payload.total_chunks.unwrap_or(1),
       payload.endpoint,
       payload.model,
       started_at.elapsed().as_millis(),

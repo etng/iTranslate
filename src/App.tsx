@@ -21,6 +21,7 @@ import {
 import { LEARNING_QUOTES } from "./constants/quotes";
 import type {
   EngineStoreState,
+  TranslateChunkProgress,
   TranslationHistoryItem,
   TranslatorModelConfig,
   UserPreferences,
@@ -454,6 +455,15 @@ function App() {
       try {
         const preprocessed = preprocessInput(rawInput);
         const skipTranslation = shouldSkipTranslation(effectiveSourceLanguage, effectiveTargetLanguage);
+        const handleChunkProgress = (event: TranslateChunkProgress) => {
+          const label = `[${requestId}] 分块 ${event.current}/${event.total}`;
+          if (event.phase === "start") {
+            setStatusText(`翻译进行中：${event.current}/${event.total}`);
+            appendLog("INFO", `${label} 开始`);
+          } else {
+            appendLog("INFO", `${label} 完成，耗时 ${event.elapsedMs ?? 0}ms`);
+          }
+        };
         let result = skipTranslation
           ? { outputMarkdown: preprocessed.markdown, usedPrompt: "" }
           : await translateWithModel({
@@ -462,6 +472,8 @@ function App() {
             inputRaw: rawInput,
             inputMarkdown: preprocessed.markdown,
             modelConfig: selectedEngine,
+            requestId,
+            onChunkProgress: handleChunkProgress,
           });
 
         if (!skipTranslation && !isOutputLanguageAcceptable(effectiveTargetLanguage, result.outputMarkdown)) {
@@ -472,6 +484,8 @@ function App() {
             inputRaw: rawInput,
             inputMarkdown: preprocessed.markdown,
             modelConfig: selectedEngine,
+            requestId: `${requestId}-r1`,
+            onChunkProgress: handleChunkProgress,
           });
           if (!isOutputLanguageAcceptable(effectiveTargetLanguage, result.outputMarkdown)) {
             throw new Error(`翻译结果疑似未按目标语言输出（目标：${effectiveTargetLanguage}）`);
@@ -815,6 +829,16 @@ function App() {
             inputRaw: chapter.html,
             inputMarkdown: chapter.markdown,
             modelConfig: engine,
+            requestId: `epub-${index + 1}-${crypto.randomUUID().slice(0, 8)}`,
+            onChunkProgress: (event) => {
+              setStatusText(`EPUB 翻译中：第 ${index + 1}/${chaptersToProcess.length} 章，分块 ${event.current}/${event.total}`);
+              if (event.phase === "done") {
+                appendLog(
+                  "INFO",
+                  `EPUB 章节分块完成：${sourceLabel} ${event.current}/${event.total} 耗时 ${event.elapsedMs ?? 0}ms`,
+                );
+              }
+            },
           });
 
         if (!skipTranslation && !isOutputLanguageAcceptable(payload.targetLanguage, result.outputMarkdown)) {
@@ -825,6 +849,16 @@ function App() {
             inputRaw: chapter.html,
             inputMarkdown: chapter.markdown,
             modelConfig: engine,
+            requestId: `epub-${index + 1}-${crypto.randomUUID().slice(0, 8)}-r1`,
+            onChunkProgress: (event) => {
+              setStatusText(`EPUB 重试中：第 ${index + 1}/${chaptersToProcess.length} 章，分块 ${event.current}/${event.total}`);
+              if (event.phase === "done") {
+                appendLog(
+                  "INFO",
+                  `EPUB 章节重试分块完成：${sourceLabel} ${event.current}/${event.total} 耗时 ${event.elapsedMs ?? 0}ms`,
+                );
+              }
+            },
           });
           if (!isOutputLanguageAcceptable(payload.targetLanguage, result.outputMarkdown)) {
             throw new Error(`章节 ${chapter.fileName} 翻译结果未按目标语言输出，请重试或更换模型`);

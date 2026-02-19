@@ -4,10 +4,15 @@
 
 ## 本轮待办
 
-- [ ] （暂无，等待新任务）
+- [x] 增强翻译可观测性：显示分块进度（请求ID/块序号）到状态栏与运行日志
+- [x] 前后端透传请求上下文：`requestId/chunkIndex/totalChunks` 并统一日志格式
+- [x] 回归验证：单测 + e2e + `cargo check`，并补充任务进展文档
 
 ## 已完成
 
+- [x] 翻译链路可观测性增强：分块进度（开始/完成/耗时）已落状态栏与日志
+- [x] 前后端请求上下文打通：`requestId/chunkIndex/totalChunks` 全链路透传
+- [x] 完成回归：`make check` + `npm run test:e2e`
 - [x] 顶部名言点击可直接新建翻译任务（源文本为该名言）
 - [x] 名言任务历史标题固定为“名言警句翻译+年月日时分秒”
 - [x] 恢复发布矩阵到 macOS/Linux/Windows，验证后发 minor release

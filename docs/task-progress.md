@@ -6,6 +6,7 @@
 - 任务池状态：本轮无未完成开发项（仅保留滚动评审）。
 - 质量状态：持续要求 `lint`、单测、e2e、`cargo check` 通过后再交付。
 - 存储状态：历史已从浏览器 `localStorage` 迁移到 SQLite，避免大体量 EPUB 场景下的 quota 异常。
+- 可观测性状态：翻译请求已支持 `requestId` 与分块序号透传，状态栏和运行日志可直接看到“进行到第几块/耗时”。
 
 ## 已实现能力（汇总）
 
@@ -70,6 +71,7 @@
 - 原生菜单支持“关于 / 检查更新”。
 - 检查更新对接 GitHub `releases/latest`。
 - 翻译链路日志增强：开始/结束/耗时/失败细节，便于定位卡顿。
+- 翻译分块日志增强：每个分块开始/完成都会写入日志，并附带 `requestId + chunkIndex/totalChunks`。
 - 修复自动发版阻塞问题：更新 tauri-action 参数并替换默认 bundle identifier。
 - 发布工作流已恢复三平台矩阵（macOS/Linux/Windows）并保留缓存优化。
 
