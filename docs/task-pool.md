@@ -100,6 +100,7 @@
 - [x] `fixtures` 下 EPUB 大文件加入 `.gitignore` 防止误提交
 - [x] 新增 `make test-epub-fixture`，基于真实 fixture EPUB 覆盖解析与长章节分块回归
 - [x] Rust 翻译请求新增重试机制（网络错误与 5xx 自动重试），并修正错误文案
+- [x] 收敛翻译接口超时与重试时长，并细分错误类型（超时/连接/状态码）
 说明：
 - 分包结果：主包 `index` 从约 `1070.38 kB` 降至约 `182.19 kB`，其余拆分到 `vendor/editor/markdown/tauri`。
 - `Updater` 已配置：`src-tauri/tauri.conf.json` 已写入 `pubkey` 与 `latest.json` 地址；私钥文件仅本地保存并已通过 `.gitignore` 排除，应在 CI 中注入 `TAURI_SIGNING_PRIVATE_KEY*` 环境变量。
