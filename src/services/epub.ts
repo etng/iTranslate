@@ -89,6 +89,27 @@ function normalizeHtmlFragmentForXhtml(html: string): string {
   return normalizeVoidTagsForXhtml(normalizeXhtmlEntities(html));
 }
 
+function resolveChapterDisplayTitle(
+  fallbackTitle: string,
+  targetMarkdown: string,
+  contentMode: EpubContentMode,
+): string {
+  if (contentMode !== "translated-only") {
+    return fallbackTitle;
+  }
+  const lines = targetMarkdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+    if (headingMatch?.[1]) {
+      return headingMatch[1].trim();
+    }
+  }
+  return fallbackTitle;
+}
+
 function createChapterXhtml(chapter: EpubChapter, language: string, contentMode: EpubContentMode): string {
   const sourceHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.sourceMarkdown));
   const targetHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.targetMarkdown));
@@ -123,7 +144,7 @@ function buildStyles(layoutMode: EpubLayoutMode): string {
   if (layoutMode === "ja-vertical") {
     return [
       "html,body{margin:0;padding:0;}",
-      "body{display:block;font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;text-orientation:mixed;direction:rtl;text-align:start;text-justify:auto;}",
+      "body{display:block;font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;text-orientation:mixed;text-align:start;text-justify:auto;}",
       "h1,h2{page-break-after:avoid;line-break:strict;}",
       "section,.translated-only{margin-left:1.2em;break-inside:avoid;writing-mode:inherit;-epub-writing-mode:inherit;-webkit-writing-mode:inherit;text-align:start;}",
       "p{margin-block-start:0;margin-block-end:0.9em;}",
@@ -143,7 +164,7 @@ export async function buildBilingualEpubBlob(
   const pageProgressionDirection = layoutMode === "ja-vertical" ? "rtl" : "ltr";
   const chapters: EpubChapter[] = historyItems.map((item, index) => ({
     id: `chap-${index + 1}`,
-    title: item.title || `章节 ${index + 1}`,
+    title: resolveChapterDisplayTitle(item.title || `章节 ${index + 1}`, item.outputMarkdown, contentMode),
     sourceMarkdown: item.inputMarkdown,
     targetMarkdown: item.outputMarkdown,
   }));

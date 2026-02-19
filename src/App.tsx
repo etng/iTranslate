@@ -74,7 +74,7 @@ const AUTO_TRANSLATE_DEBOUNCE_MS = 650;
 const AUTO_DETECT_LANGUAGE_DEBOUNCE_MS = 280;
 const QUOTE_ROTATE_INTERVAL_MS = 60_000;
 const HISTORY_SEED_APPLIED_KEY = "itranslate.history.seed.applied.v1";
-const EPUB_TRIAL_CHAPTER_LIMIT = 3;
+const EPUB_TRIAL_CHAPTER_LIMIT = 5;
 
 type TranslateTrigger = "manual" | "paste";
 type LogLevel = "INFO" | "WARN" | "ERROR";

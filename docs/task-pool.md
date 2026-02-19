@@ -89,6 +89,9 @@
 - [x] 日文竖排样式优化为顶部起排，提升 iBooks 阅读体验
 - [x] EPUB 闭环新增试用限制：默认仅处理前三章，用户偏好勾选“我已诚信付费”后完整导出
 - [x] EPUB 闭环与导出向导新增可视化进度条，按总量展示进度
+- [x] EPUB 试用章节上限调整为 5 章，增强样例可读性
+- [x] 仅译文导出时章节标题优先使用译文首标题
+- [x] 日文竖排移除 `direction: rtl`，修复 iBooks 底部对齐异常
 说明：
 - 分包结果：主包 `index` 从约 `1070.38 kB` 降至约 `182.19 kB`，其余拆分到 `vendor/editor/markdown/tauri`。
 - `Updater` 已配置：`src-tauri/tauri.conf.json` 已写入 `pubkey` 与 `latest.json` 地址；私钥文件仅本地保存并已通过 `.gitignore` 排除，应在 CI 中注入 `TAURI_SIGNING_PRIVATE_KEY*` 环境变量。

@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { buildBilingualEpubBlob } from "../services/epub";
 import type { TranslationHistoryItem } from "../types";
 
-function createHistoryItem(id: string, source: string, target: string): TranslationHistoryItem {
+function createHistoryItem(id: string, source: string, target: string, title = "章节测试"): TranslationHistoryItem {
   return {
     id,
-    title: "章节测试",
+    title,
     sourceLanguage: "英语",
     targetLanguage: "简体中文",
     createdAt: new Date().toISOString(),
@@ -52,6 +52,7 @@ describe("epub 导出 XHTML 兼容性", () => {
       "ja-case",
       "## Chapter I\n\nThere was no possibility of taking a walk that day.",
       "## 第1章\n\nその日は散歩に出ることはできなかった。",
+      "Chapter I",
     );
     const blob = await buildBilingualEpubBlob([chapter], {
       title: "日本語テスト本",
@@ -69,8 +70,9 @@ describe("epub 导出 XHTML 兼容性", () => {
 
     expect(opf).toContain('page-progression-direction="rtl"');
     expect(styles).toContain("writing-mode:vertical-rl");
-    expect(styles).toContain("direction:rtl");
+    expect(styles).not.toContain("direction:rtl");
     expect(chapterXhtml).toContain('xml:lang="ja"');
     expect(chapterXhtml).not.toContain("<h2>原文</h2>");
+    expect(chapterXhtml).toContain("<h1>第1章</h1>");
   });
 });
