@@ -53,6 +53,7 @@
 - EPUB 闭环失败时前台弹出 alert，避免用户只能从日志判断失败。
 - 导出 EPUB 向导支持手动排序（上移/下移），用于处理同名章节或普通记录混合导出场景。
 - EPUB 导出新增“日文竖排模式”：章节竖排（`writing-mode: vertical-rl`）并设置 spine 翻页方向为 `rtl`。
+- 翻译主链路新增“同语种短路”：源/目标语言一致时跳过模型调用，直接沿用预处理后的 Markdown。
 
 5. 翻译引擎与偏好
 - 引擎管理表格化：新增、编辑、启停、软删除、默认引擎切换。
@@ -70,6 +71,7 @@
 7. 本轮回归验证
 - `make check` 通过（`lint`、`typecheck`、`vitest`、`cargo check`）。
 - `npm run test:e2e` 通过（11/11）。
+- `USE_OLLAMA=0 make sample-ja-epub` 可生成 `tmp/jane-eyre-ja-vertical-sample.epub`。
 
 ## 当前待办
 

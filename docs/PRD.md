@@ -19,7 +19,8 @@
 - 翻译主流程：
   - 源语言/目标语言选择（默认英语 -> 简体中文）。
   - 输入区支持粘贴与手动输入。
-  - 调用 `translategemma` 并返回结果。
+- 调用 `translategemma` 并返回结果。
+  - 若源语言与目标语言一致，则跳过模型调用，直接输出预处理后的 Markdown。
 - 输入处理策略：
   - `Cmd+V` 粘贴：自动探测 HTML 并转换为更规整的 Markdown 后翻译。
   - 手动键入：不自动翻译，由用户点击“马上翻译”触发。
@@ -63,6 +64,7 @@
   - 控制页面级滚动，仅编辑器/预览区允许纵向滚动。
 - 工程能力：
   - Makefile 统一命令入口（初始化、启动、测试、seed、版本等）。
+  - 提供样例命令 `make sample-ja-epub`，可基于 fixture 生成日文竖排 EPUB 用于阅读器验证。
   - 单元测试（Vitest）+ e2e（Playwright）持续校验。
   - GitHub Actions 自动发版：`v*` tag 触发构建并发布 Release（含安装包与 Updater 元数据）。
 
