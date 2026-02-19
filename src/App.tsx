@@ -34,7 +34,6 @@ import {
   loadHistory,
   renameHistoryTitle,
   replaceHistory,
-  saveHistory,
   upsertHistory,
 } from "./services/historyStore";
 import {
@@ -349,7 +348,9 @@ function App() {
     }
 
     void (async () => {
-      await saveHistory(historySeedEntries);
+      for (const item of historySeedEntries) {
+        await upsertHistory(item);
+      }
       await refreshHistory();
       localStorage.setItem(HISTORY_SEED_APPLIED_KEY, "1");
       setStatusText(`已注入分页 seed，共 ${historySeedEntries.length} 条记录`);
