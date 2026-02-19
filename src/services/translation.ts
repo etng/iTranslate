@@ -20,6 +20,8 @@ interface OllamaHealthPayload {
   model: string;
 }
 
+const TRANSLATION_CHUNK_CHAR_LIMIT = 3200;
+
 const LANGUAGE_CODE_MAP: Record<string, string> = {
   English: "en",
   "Simplified Chinese": "zh-CN",
@@ -49,10 +51,69 @@ export function buildTranslategemmaPrompt(
   const targetCode = resolveLanguageCode(targetLanguage);
 
   return `You are a professional ${sourceLanguage} (${sourceCode}) to ${targetLanguage} (${targetCode}) translator. Your goal is to accurately convey the meaning and nuances of the original ${sourceLanguage} text while adhering to ${targetLanguage} grammar, vocabulary, and cultural sensitivities.
-Produce only the ${targetLanguage} translation, without any additional explanations or commentary. Please translate the following ${sourceLanguage} text into ${targetLanguage}:
+Produce only the ${targetLanguage} translation, without any additional explanations or commentary. Do not summarize, do not rewrite, and do not omit content. Preserve the original Markdown structure (headings, lists, blockquotes, links, emphasis, and paragraph boundaries) as much as possible. Please translate the following ${sourceLanguage} text into ${targetLanguage}:
 
 
 ${sourceText}`;
+}
+
+export function splitMarkdownIntoTranslationChunks(
+  markdown: string,
+  chunkCharLimit = TRANSLATION_CHUNK_CHAR_LIMIT,
+): string[] {
+  const normalized = markdown.replace(/\r\n/g, "\n").trim();
+  if (!normalized) {
+    return [];
+  }
+  if (normalized.length <= chunkCharLimit) {
+    return [normalized];
+  }
+
+  const blocks = normalized.split(/\n{2,}/);
+  const chunks: string[] = [];
+  let current = "";
+
+  const pushCurrent = () => {
+    if (current.trim().length > 0) {
+      chunks.push(current.trim());
+      current = "";
+    }
+  };
+
+  for (const block of blocks) {
+    const candidate = current.length > 0 ? `${current}\n\n${block}` : block;
+    if (candidate.length <= chunkCharLimit) {
+      current = candidate;
+      continue;
+    }
+
+    pushCurrent();
+    if (block.length <= chunkCharLimit) {
+      current = block;
+      continue;
+    }
+
+    // 超长单段按行进一步拆分，避免整段触发模型摘要行为。
+    const lines = block.split("\n");
+    let lineBucket = "";
+    for (const line of lines) {
+      const lineCandidate = lineBucket.length > 0 ? `${lineBucket}\n${line}` : line;
+      if (lineCandidate.length <= chunkCharLimit) {
+        lineBucket = lineCandidate;
+      } else {
+        if (lineBucket.trim().length > 0) {
+          chunks.push(lineBucket.trim());
+        }
+        lineBucket = line;
+      }
+    }
+    if (lineBucket.trim().length > 0) {
+      chunks.push(lineBucket.trim());
+    }
+  }
+
+  pushCurrent();
+  return chunks.length > 0 ? chunks : [normalized];
 }
 
 export async function checkOllamaHealth(
@@ -74,11 +135,13 @@ export async function checkOllamaHealth(
 }
 
 export async function translateWithModel(request: TranslateRequest): Promise<TranslateResult> {
-  const prompt = buildTranslategemmaPrompt(
+  const chunks = splitMarkdownIntoTranslationChunks(request.inputMarkdown);
+  const prompts = chunks.map((chunk) => buildTranslategemmaPrompt(
     request.sourceLanguage,
     request.targetLanguage,
-    request.inputMarkdown,
-  );
+    chunk,
+  ));
+  const prompt = prompts.join("\n\n");
 
   if (!isTauriRuntime()) {
     return {
@@ -87,19 +150,23 @@ export async function translateWithModel(request: TranslateRequest): Promise<Tra
     };
   }
 
-  const result = await invoke<TranslateCommandResult>("translate_text", {
-    payload: {
-      endpoint: request.modelConfig.endpoint,
-      model: request.modelConfig.model,
-      prompt,
-      apiToken: request.modelConfig.apiToken,
-      username: request.modelConfig.username,
-      password: request.modelConfig.password,
-    } satisfies TranslateCommandPayload,
-  });
+  const translatedChunks: string[] = [];
+  for (const chunkPrompt of prompts) {
+    const result = await invoke<TranslateCommandResult>("translate_text", {
+      payload: {
+        endpoint: request.modelConfig.endpoint,
+        model: request.modelConfig.model,
+        prompt: chunkPrompt,
+        apiToken: request.modelConfig.apiToken,
+        username: request.modelConfig.username,
+        password: request.modelConfig.password,
+      } satisfies TranslateCommandPayload,
+    });
+    translatedChunks.push(result.text.trim());
+  }
 
   return {
-    outputMarkdown: result.text.trim(),
+    outputMarkdown: translatedChunks.join("\n\n").trim(),
     usedPrompt: prompt,
   };
 }
