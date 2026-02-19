@@ -61,7 +61,7 @@ import {
   type MarkdownBlockRange,
 } from "./services/markdownBlockMap";
 import {
-  buildEpubHistoryTitle,
+  buildEpubSourceLabel,
   buildTranslatedEpubFileName,
   parseEpubFile,
 } from "./services/epubImport";
@@ -98,6 +98,10 @@ function createHistoryItem(args: {
   inputMarkdown: string;
   outputMarkdown: string;
   engine: TranslatorModelConfig;
+  sourceType?: "normal" | "epub";
+  sourceBookName?: string;
+  sourceChapterFile?: string;
+  sourceChapterIndex?: number;
 }): TranslationHistoryItem {
   return {
     id: args.id ?? crypto.randomUUID(),
@@ -113,6 +117,10 @@ function createHistoryItem(args: {
     engineId: args.engine.id,
     engineName: args.engine.name,
     engineDeleted: Boolean(args.engine.deletedAt),
+    sourceType: args.sourceType,
+    sourceBookName: args.sourceBookName,
+    sourceChapterFile: args.sourceChapterFile,
+    sourceChapterIndex: args.sourceChapterIndex,
   };
 }
 
@@ -702,13 +710,17 @@ function App() {
         });
 
         const historyItem = createHistoryItem({
-          title: buildEpubHistoryTitle(imported.fileNameBase, chapter.fileName),
+          title: chapter.title,
           sourceLanguage: payload.sourceLanguage,
           targetLanguage: payload.targetLanguage,
           inputRaw: chapter.html,
           inputMarkdown: chapter.markdown,
           outputMarkdown: result.outputMarkdown,
           engine,
+          sourceType: "epub",
+          sourceBookName: imported.fileNameBase,
+          sourceChapterFile: buildEpubSourceLabel(imported.fileNameBase, chapter.fileName),
+          sourceChapterIndex: chapter.order,
         });
         translatedItems.push(historyItem);
         setHistory(await upsertHistory(historyItem));

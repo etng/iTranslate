@@ -217,7 +217,8 @@ test("EPUB 闭环翻译可写入历史并自动导出", async ({ page }) => {
 
   await expect(page.locator(".toast")).toContainText("EPUB 闭环翻译完成");
   await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
-  await expect(page.locator('input[value^="SampleBook ⟫ chapter-1.xhtml"]')).toBeVisible();
+  await expect(page.locator('input[value="Chapter One"]')).toBeVisible();
+  await expect(page.locator("tbody")).toContainText("SampleBook ⟫ chapter-1.xhtml");
 });
 
 test("布局稳定且 Cmd/Ctrl+V 粘贴触发 HTML 转 Markdown 自动翻译", async ({ page }) => {
@@ -610,7 +611,7 @@ test("历史多选记录可通过向导导出 EPUB", async ({ page }) => {
 
   await expect(page.getByRole("dialog", { name: "导出 EPUB 向导" })).toBeVisible();
   await page.getByRole("button", { name: "下一步" }).click();
-  await page.locator('select').last().selectOption("desc");
+  await page.getByLabel("章节排序（按标题）").selectOption("desc");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出 EPUB" }).last().click();

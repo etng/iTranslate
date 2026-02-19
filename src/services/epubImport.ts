@@ -1,12 +1,14 @@
 import JSZip from "jszip";
 import { preprocessInput } from "./preprocess";
 
-const EPUB_TITLE_SEPARATOR = " ⟫ ";
+const EPUB_SOURCE_SEPARATOR = " ⟫ ";
 
 export interface ImportedEpubChapter {
   fileName: string;
   html: string;
   markdown: string;
+  title: string;
+  order: number;
 }
 
 export interface ImportedEpubBook {
@@ -61,12 +63,33 @@ function shouldSkipHtml(path: string): boolean {
   return base.includes("nav") || base.includes("toc") || base.includes("contents");
 }
 
-export function buildEpubHistoryTitle(epubFileNameBase: string, htmlFileName: string): string {
-  return `${sanitizeTitlePart(epubFileNameBase)}${EPUB_TITLE_SEPARATOR}${sanitizeTitlePart(htmlFileName)}`;
+export function buildEpubSourceLabel(epubFileNameBase: string, htmlFileName: string): string {
+  return `${sanitizeTitlePart(epubFileNameBase)}${EPUB_SOURCE_SEPARATOR}${sanitizeTitlePart(htmlFileName)}`;
 }
 
 export function buildTranslatedEpubFileName(epubFileNameBase: string): string {
   return `${sanitizeTitlePart(epubFileNameBase)}_已翻译.epub`;
+}
+
+function extractChapterTitle(markdown: string, fallbackFileName: string): string {
+  const lines = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+    if (headingMatch?.[1]) {
+      return headingMatch[1].trim();
+    }
+  }
+
+  const plainLine = lines.find((line) => line.length > 0);
+  if (plainLine) {
+    return plainLine.length > 80 ? `${plainLine.slice(0, 80)}...` : plainLine;
+  }
+
+  return sanitizeTitlePart(stripExtension(fallbackFileName));
 }
 
 export async function parseEpubFile(file: File): Promise<ImportedEpubBook> {
@@ -85,10 +108,13 @@ export async function parseEpubFile(file: File): Promise<ImportedEpubBook> {
     if (!markdown.trim()) {
       continue;
     }
+    const fileName = basename(path);
     chapters.push({
-      fileName: basename(path),
+      fileName,
       html,
       markdown,
+      title: extractChapterTitle(markdown, fileName),
+      order: chapters.length + 1,
     });
   }
 

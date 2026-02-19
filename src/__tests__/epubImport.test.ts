@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
 import {
-  buildEpubHistoryTitle,
+  buildEpubSourceLabel,
   buildTranslatedEpubFileName,
   parseEpubFile,
 } from "../services/epubImport";
@@ -37,11 +37,13 @@ describe("epubImport", () => {
     expect(parsed.metaLanguage).toBe("en");
     expect(parsed.chapters).toHaveLength(1);
     expect(parsed.chapters[0].fileName).toBe("chapter-1.xhtml");
+    expect(parsed.chapters[0].title).toBe("A");
+    expect(parsed.chapters[0].order).toBe(1);
     expect(parsed.chapters[0].markdown).toContain("Hello");
   });
 
-  it("可生成历史标题与导出文件名", () => {
-    const title = buildEpubHistoryTitle("MyBook", "chapter-1.xhtml");
+  it("可生成来源标识与导出文件名", () => {
+    const title = buildEpubSourceLabel("MyBook", "chapter-1.xhtml");
     expect(title).toContain("MyBook");
     expect(title).toContain("chapter-1.xhtml");
 

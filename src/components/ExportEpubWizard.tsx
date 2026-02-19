@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import type { TranslationHistoryItem } from "../types";
 import { buildBilingualEpubBlob, saveEpubByPicker } from "../services/epub";
 
@@ -14,6 +15,7 @@ interface ExportEpubWizardProps {
 }
 
 type SortOrder = "asc" | "desc";
+type ChapterOrderMode = "auto" | "manual";
 
 export function ExportEpubWizard({
   open,
@@ -30,16 +32,42 @@ export function ExportEpubWizard({
   const [author, setAuthor] = useState(defaultAuthor || "iTranslate");
   const [language, setLanguage] = useState("zh-CN");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [chapterOrderMode, setChapterOrderMode] = useState<ChapterOrderMode>("auto");
+  const [manualOrderIds, setManualOrderIds] = useState<string[]>([]);
   const [setDefaultDir, setSetDefaultDir] = useState(false);
   const [setDefaultAuthor, setSetDefaultAuthor] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const sortedItems = useMemo(() => {
+  const defaultChapterItems = useMemo(() => {
     return [...items].sort((a, b) => {
+      if (a.sourceType === "epub" && b.sourceType === "epub") {
+        const aIndex = a.sourceChapterIndex ?? Number.MAX_SAFE_INTEGER;
+        const bIndex = b.sourceChapterIndex ?? Number.MAX_SAFE_INTEGER;
+        if (aIndex !== bIndex) {
+          return aIndex - bIndex;
+        }
+      }
       const value = a.title.localeCompare(b.title, "zh-CN");
-      return sortOrder === "asc" ? value : -value;
+      if (value !== 0) {
+        return value;
+      }
+      return a.createdAt.localeCompare(b.createdAt);
     });
-  }, [items, sortOrder]);
+  }, [items]);
+
+  const sortedItems = useMemo(() => {
+    if (chapterOrderMode === "manual") {
+      const map = new Map(defaultChapterItems.map((item) => [item.id, item]));
+      return manualOrderIds
+        .map((id) => map.get(id))
+        .filter((item): item is TranslationHistoryItem => Boolean(item));
+    }
+    const ordered = [...defaultChapterItems];
+    if (sortOrder === "desc") {
+      ordered.reverse();
+    }
+    return ordered;
+  }, [chapterOrderMode, defaultChapterItems, manualOrderIds, sortOrder]);
 
   useEffect(() => {
     if (!open) {
@@ -48,8 +76,10 @@ export function ExportEpubWizard({
     setAuthor(defaultAuthor || "iTranslate");
     setSetDefaultAuthor(false);
     setSetDefaultDir(false);
+    setChapterOrderMode("auto");
+    setManualOrderIds(defaultChapterItems.map((item) => item.id));
     setStep(1);
-  }, [defaultAuthor, open]);
+  }, [defaultAuthor, defaultChapterItems, open]);
 
   if (!open) {
     return null;
@@ -133,13 +163,67 @@ export function ExportEpubWizard({
                 <option value="desc">降序</option>
               </select>
             </label>
+            <label>
+              排序方式
+              <select
+                value={chapterOrderMode}
+                onChange={(event) => setChapterOrderMode(event.target.value as ChapterOrderMode)}
+              >
+                <option value="auto">自动排序</option>
+                <option value="manual">手动排序</option>
+              </select>
+            </label>
             <p>将导出 {sortedItems.length} 个章节（每条记录一个章节，含原文+译文）。</p>
             <div className="wizard-preview">
-              {sortedItems.map((item, index) => (
-                <div key={item.id}>
-                  {index + 1}. {item.title}
-                </div>
-              ))}
+              {sortedItems.map((item, index) => {
+                const moveUpDisabled = chapterOrderMode !== "manual" || index === 0;
+                const moveDownDisabled = chapterOrderMode !== "manual" || index === sortedItems.length - 1;
+                return (
+                  <div key={item.id} className="wizard-row">
+                    <span>{index + 1}. {item.title}</span>
+                    <div className="table-actions">
+                      <button
+                        type="button"
+                        className="icon-btn icon-only"
+                        title="上移"
+                        aria-label="上移"
+                        disabled={moveUpDisabled}
+                        onClick={() => {
+                          if (moveUpDisabled) return;
+                          setManualOrderIds((prev) => {
+                            const next = [...prev];
+                            const idx = next.indexOf(item.id);
+                            if (idx <= 0) return prev;
+                            [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                            return next;
+                          });
+                        }}
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn icon-only"
+                        title="下移"
+                        aria-label="下移"
+                        disabled={moveDownDisabled}
+                        onClick={() => {
+                          if (moveDownDisabled) return;
+                          setManualOrderIds((prev) => {
+                            const next = [...prev];
+                            const idx = next.indexOf(item.id);
+                            if (idx < 0 || idx >= next.length - 1) return prev;
+                            [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                            return next;
+                          });
+                        }}
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

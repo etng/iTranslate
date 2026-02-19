@@ -46,6 +46,10 @@ export interface TranslationHistoryItem {
   engineId: string;
   engineName: string;
   engineDeleted: boolean;
+  sourceType?: "normal" | "epub";
+  sourceBookName?: string;
+  sourceChapterFile?: string;
+  sourceChapterIndex?: number;
 }
 
 export interface OllamaHealthStatus {

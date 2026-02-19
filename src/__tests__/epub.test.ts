@@ -7,17 +7,17 @@ function createHistoryItem(id: string, source: string, target: string): Translat
   return {
     id,
     title: "章节测试",
-    sourceLang: "英语",
-    targetLang: "简体中文",
+    sourceLanguage: "英语",
+    targetLanguage: "简体中文",
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
     inputRaw: source,
     inputMarkdown: source,
     outputMarkdown: target,
-    viewMode: "markdown",
+    provider: "ollama",
+    model: "translategemma",
     engineId: "engine-1",
     engineName: "测试引擎",
-    engineModel: "translategemma",
+    engineDeleted: false,
   };
 }
 

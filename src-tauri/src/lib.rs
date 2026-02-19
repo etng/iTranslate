@@ -79,6 +79,10 @@ struct HistoryRecord {
   engine_id: String,
   engine_name: String,
   engine_deleted: bool,
+  source_type: Option<String>,
+  source_book_name: Option<String>,
+  source_chapter_file: Option<String>,
+  source_chapter_index: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,10 +126,22 @@ fn open_history_db(app: &tauri::AppHandle) -> Result<Connection, String> {
       model TEXT NOT NULL,
       engine_id TEXT NOT NULL,
       engine_name TEXT NOT NULL,
-      engine_deleted INTEGER NOT NULL DEFAULT 0
+      engine_deleted INTEGER NOT NULL DEFAULT 0,
+      source_type TEXT,
+      source_book_name TEXT,
+      source_chapter_file TEXT,
+      source_chapter_index INTEGER
     );
     "#,
   ).map_err(|error| format!("初始化历史数据库失败: {error}"))?;
+  for sql in [
+    "ALTER TABLE translation_history ADD COLUMN source_type TEXT",
+    "ALTER TABLE translation_history ADD COLUMN source_book_name TEXT",
+    "ALTER TABLE translation_history ADD COLUMN source_chapter_file TEXT",
+    "ALTER TABLE translation_history ADD COLUMN source_chapter_index INTEGER",
+  ] {
+    let _ = conn.execute(sql, []);
+  }
   Ok(conn)
 }
 
@@ -136,7 +152,8 @@ fn query_all_history(conn: &Connection) -> Result<Vec<HistoryRecord>, String> {
       SELECT
         id, title, created_at, source_language, target_language,
         input_raw, input_markdown, output_markdown,
-        provider, model, engine_id, engine_name, engine_deleted
+        provider, model, engine_id, engine_name, engine_deleted,
+        source_type, source_book_name, source_chapter_file, source_chapter_index
       FROM translation_history
       ORDER BY created_at DESC
       "#,
@@ -159,6 +176,10 @@ fn query_all_history(conn: &Connection) -> Result<Vec<HistoryRecord>, String> {
         engine_id: row.get(10)?,
         engine_name: row.get(11)?,
         engine_deleted: row.get::<_, i64>(12)? == 1,
+        source_type: row.get(13)?,
+        source_book_name: row.get(14)?,
+        source_chapter_file: row.get(15)?,
+        source_chapter_index: row.get(16)?,
       })
     })
     .map_err(|error| format!("查询历史失败: {error}"))?;
@@ -308,8 +329,9 @@ async fn history_upsert(app: tauri::AppHandle, payload: HistoryRecord) -> Result
       INSERT INTO translation_history (
         id, title, created_at, source_language, target_language,
         input_raw, input_markdown, output_markdown,
-        provider, model, engine_id, engine_name, engine_deleted
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+        provider, model, engine_id, engine_name, engine_deleted,
+        source_type, source_book_name, source_chapter_file, source_chapter_index
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
       ON CONFLICT(id) DO UPDATE SET
         title=excluded.title,
         created_at=excluded.created_at,
@@ -322,7 +344,11 @@ async fn history_upsert(app: tauri::AppHandle, payload: HistoryRecord) -> Result
         model=excluded.model,
         engine_id=excluded.engine_id,
         engine_name=excluded.engine_name,
-        engine_deleted=excluded.engine_deleted
+        engine_deleted=excluded.engine_deleted,
+        source_type=excluded.source_type,
+        source_book_name=excluded.source_book_name,
+        source_chapter_file=excluded.source_chapter_file,
+        source_chapter_index=excluded.source_chapter_index
       "#,
       params![
         payload.id,
@@ -338,6 +364,10 @@ async fn history_upsert(app: tauri::AppHandle, payload: HistoryRecord) -> Result
         payload.engine_id,
         payload.engine_name,
         if payload.engine_deleted { 1 } else { 0 },
+        payload.source_type,
+        payload.source_book_name,
+        payload.source_chapter_file,
+        payload.source_chapter_index,
       ],
     )
     .map_err(|error| format!("写入历史失败: {error}"))?;
@@ -356,8 +386,9 @@ async fn history_replace_all(app: tauri::AppHandle, payload: Vec<HistoryRecord>)
       INSERT INTO translation_history (
         id, title, created_at, source_language, target_language,
         input_raw, input_markdown, output_markdown,
-        provider, model, engine_id, engine_name, engine_deleted
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+        provider, model, engine_id, engine_name, engine_deleted,
+        source_type, source_book_name, source_chapter_file, source_chapter_index
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
       "#,
       params![
         item.id,
@@ -373,6 +404,10 @@ async fn history_replace_all(app: tauri::AppHandle, payload: Vec<HistoryRecord>)
         item.engine_id,
         item.engine_name,
         if item.engine_deleted { 1 } else { 0 },
+        item.source_type,
+        item.source_book_name,
+        item.source_chapter_file,
+        item.source_chapter_index,
       ],
     )
     .map_err(|error| format!("批量写入历史失败: {error}"))?;

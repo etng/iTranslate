@@ -154,6 +154,7 @@ export function HistoryList({
                 </th>
                 <th>标题</th>
                 <th>语言方向</th>
+                <th>来源</th>
                 <th>翻译引擎</th>
                 <th>时间</th>
                 <th>操作</th>
@@ -182,6 +183,16 @@ export function HistoryList({
                     />
                   </td>
                   <td>{item.sourceLanguage} → {item.targetLanguage}</td>
+                  <td>
+                    {item.sourceType === "epub" ? (
+                      <div className="credential-cell">
+                        <strong>EPUB</strong>
+                        <small>{item.sourceChapterFile ?? item.sourceBookName ?? "-"}</small>
+                      </div>
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </td>
                   <td>
                     <div className="credential-cell">
                       <strong>{item.engineDeleted ? `${item.engineName}（已删除）` : item.engineName}</strong>
