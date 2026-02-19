@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use tauri::Emitter;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tokio::time::sleep;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -193,6 +194,7 @@ fn query_all_history(conn: &Connection) -> Result<Vec<HistoryRecord>, String> {
 
 #[tauri::command]
 async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, String> {
+  const MAX_RETRY_ATTEMPTS: u32 = 3;
   let started_at = Instant::now();
   log::info!(
     "translate_text start endpoint={} model={} prompt_chars={}",
@@ -207,59 +209,108 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
     .map_err(|error| format!("创建 HTTP 客户端失败: {error}"))?;
   let endpoint = format!("{}/api/generate", payload.endpoint.trim_end_matches('/'));
 
-  let mut request = client
-    .post(&endpoint);
+  for attempt in 1..=MAX_RETRY_ATTEMPTS {
+    let mut request = client.post(&endpoint);
 
-  if let Some(token) = &payload.api_token {
-    if !token.is_empty() {
-      request = request.bearer_auth(token);
+    if let Some(token) = &payload.api_token {
+      if !token.is_empty() {
+        request = request.bearer_auth(token);
+      }
     }
-  }
 
-  if let (Some(username), Some(password)) = (&payload.username, &payload.password) {
-    if !username.is_empty() || !password.is_empty() {
-      request = request.basic_auth(username, Some(password));
+    if let (Some(username), Some(password)) = (&payload.username, &payload.password) {
+      if !username.is_empty() || !password.is_empty() {
+        request = request.basic_auth(username, Some(password));
+      }
     }
+
+    let response = request
+      .json(&serde_json::json!({
+        "model": payload.model,
+        "prompt": payload.prompt,
+        "stream": false
+      }))
+      .send()
+      .await;
+
+    let response = match response {
+      Ok(response) => response,
+      Err(error) => {
+        if attempt < MAX_RETRY_ATTEMPTS {
+          let backoff_ms = 400 * attempt as u64;
+          log::warn!(
+            "translate_text request error endpoint={} attempt={}/{} backoff_ms={} error={}",
+            endpoint,
+            attempt,
+            MAX_RETRY_ATTEMPTS,
+            backoff_ms,
+            error
+          );
+          sleep(Duration::from_millis(backoff_ms)).await;
+          continue;
+        }
+        log::error!(
+          "translate_text request error endpoint={} attempt={}/{} error={}",
+          endpoint,
+          attempt,
+          MAX_RETRY_ATTEMPTS,
+          error
+        );
+        return Err(format!("翻译接口请求失败（已重试{}次）: {}", MAX_RETRY_ATTEMPTS, error));
+      }
+    };
+
+    if !response.status().is_success() {
+      let status = response.status();
+      let body = response.text().await.unwrap_or_default();
+      if status.is_server_error() && attempt < MAX_RETRY_ATTEMPTS {
+        let backoff_ms = 400 * attempt as u64;
+        log::warn!(
+          "translate_text server error endpoint={} attempt={}/{} status={} backoff_ms={} body={}",
+          endpoint,
+          attempt,
+          MAX_RETRY_ATTEMPTS,
+          status,
+          backoff_ms,
+          body
+        );
+        sleep(Duration::from_millis(backoff_ms)).await;
+        continue;
+      }
+
+      log::error!(
+        "translate_text bad status endpoint={} attempt={}/{} status={} body={}",
+        endpoint,
+        attempt,
+        MAX_RETRY_ATTEMPTS,
+        status,
+        body
+      );
+      return Err(format!("翻译接口返回异常状态 {status}: {body}"));
+    }
+
+    let parsed = response
+      .json::<OllamaGenerateResponse>()
+      .await
+      .map_err(|error| {
+        log::error!("translate_text parse error endpoint={} error={}", endpoint, error);
+        format!("解析翻译接口响应失败: {error}")
+      })?;
+
+    log::info!(
+      "translate_text done endpoint={} model={} elapsed_ms={} attempts={}",
+      payload.endpoint,
+      payload.model,
+      started_at.elapsed().as_millis(),
+      attempt
+    );
+
+    return Ok(TranslateOutput {
+      text: parsed.response,
+    });
   }
 
-  let response = request
-    .json(&serde_json::json!({
-      "model": payload.model,
-      "prompt": payload.prompt,
-      "stream": false
-    }))
-    .send()
-    .await
-    .map_err(|error| {
-      log::error!("translate_text request error endpoint={} error={}", endpoint, error);
-      format!("请求 Ollama 失败: {error}")
-    })?;
-
-  if !response.status().is_success() {
-    let status = response.status();
-    let body = response.text().await.unwrap_or_default();
-    log::error!("translate_text bad status endpoint={} status={} body={}", endpoint, status, body);
-    return Err(format!("Ollama 返回异常状态 {status}: {body}"));
-  }
-
-  let parsed = response
-    .json::<OllamaGenerateResponse>()
-    .await
-    .map_err(|error| {
-      log::error!("translate_text parse error endpoint={} error={}", endpoint, error);
-      format!("解析 Ollama 响应失败: {error}")
-    })?;
-
-  log::info!(
-    "translate_text done endpoint={} model={} elapsed_ms={}",
-    payload.endpoint,
-    payload.model,
-    started_at.elapsed().as_millis()
-  );
-
-  Ok(TranslateOutput {
-    text: parsed.response,
-  })
+  Err("翻译接口请求失败：未知错误".to_string())
 }
 
 #[tauri::command]
