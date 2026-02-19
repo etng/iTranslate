@@ -9,6 +9,9 @@ use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tokio::time::sleep;
 
+const TRANSLATE_HTTP_TIMEOUT_SECS: u64 = 90;
+const TRANSLATE_MAX_RETRY_ATTEMPTS: u32 = 2;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TranslatePayload {
@@ -194,7 +197,22 @@ fn query_all_history(conn: &Connection) -> Result<Vec<HistoryRecord>, String> {
 
 #[tauri::command]
 async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, String> {
-  const MAX_RETRY_ATTEMPTS: u32 = 3;
+  fn classify_reqwest_error(error: &reqwest::Error) -> String {
+    if error.is_timeout() {
+      return format!("接口请求超时（{}）", error);
+    }
+    if error.is_connect() {
+      return format!("接口连接失败（{}）", error);
+    }
+    if error.is_request() {
+      return format!("请求构造失败（{}）", error);
+    }
+    if error.is_body() {
+      return format!("请求或响应体处理失败（{}）", error);
+    }
+    format!("接口请求失败（{}）", error)
+  }
+
   let started_at = Instant::now();
   log::info!(
     "translate_text start endpoint={} model={} prompt_chars={}",
@@ -204,12 +222,12 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
   );
 
   let client = Client::builder()
-    .timeout(Duration::from_secs(180))
+    .timeout(Duration::from_secs(TRANSLATE_HTTP_TIMEOUT_SECS))
     .build()
     .map_err(|error| format!("创建 HTTP 客户端失败: {error}"))?;
   let endpoint = format!("{}/api/generate", payload.endpoint.trim_end_matches('/'));
 
-  for attempt in 1..=MAX_RETRY_ATTEMPTS {
+  for attempt in 1..=TRANSLATE_MAX_RETRY_ATTEMPTS {
     let mut request = client.post(&endpoint);
 
     if let Some(token) = &payload.api_token {
@@ -236,13 +254,13 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
     let response = match response {
       Ok(response) => response,
       Err(error) => {
-        if attempt < MAX_RETRY_ATTEMPTS {
+        if attempt < TRANSLATE_MAX_RETRY_ATTEMPTS {
           let backoff_ms = 400 * attempt as u64;
           log::warn!(
             "translate_text request error endpoint={} attempt={}/{} backoff_ms={} error={}",
             endpoint,
             attempt,
-            MAX_RETRY_ATTEMPTS,
+            TRANSLATE_MAX_RETRY_ATTEMPTS,
             backoff_ms,
             error
           );
@@ -253,23 +271,28 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
           "translate_text request error endpoint={} attempt={}/{} error={}",
           endpoint,
           attempt,
-          MAX_RETRY_ATTEMPTS,
+          TRANSLATE_MAX_RETRY_ATTEMPTS,
           error
         );
-        return Err(format!("翻译接口请求失败（已重试{}次）: {}", MAX_RETRY_ATTEMPTS, error));
+        return Err(format!(
+          "{}。已重试{}次，endpoint={}",
+          classify_reqwest_error(&error),
+          TRANSLATE_MAX_RETRY_ATTEMPTS,
+          endpoint
+        ));
       }
     };
 
     if !response.status().is_success() {
       let status = response.status();
       let body = response.text().await.unwrap_or_default();
-      if status.is_server_error() && attempt < MAX_RETRY_ATTEMPTS {
+      if status.is_server_error() && attempt < TRANSLATE_MAX_RETRY_ATTEMPTS {
         let backoff_ms = 400 * attempt as u64;
         log::warn!(
           "translate_text server error endpoint={} attempt={}/{} status={} backoff_ms={} body={}",
           endpoint,
           attempt,
-          MAX_RETRY_ATTEMPTS,
+          TRANSLATE_MAX_RETRY_ATTEMPTS,
           status,
           backoff_ms,
           body
@@ -282,11 +305,12 @@ async fn translate_text(payload: TranslatePayload) -> Result<TranslateOutput, St
         "translate_text bad status endpoint={} attempt={}/{} status={} body={}",
         endpoint,
         attempt,
-        MAX_RETRY_ATTEMPTS,
+        TRANSLATE_MAX_RETRY_ATTEMPTS,
         status,
         body
       );
-      return Err(format!("翻译接口返回异常状态 {status}: {body}"));
+      let trimmed_body = body.chars().take(600).collect::<String>();
+      return Err(format!("翻译接口返回异常状态 {status}，endpoint={}，body={}", endpoint, trimmed_body));
     }
 
     let parsed = response
