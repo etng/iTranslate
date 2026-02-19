@@ -70,7 +70,7 @@ export function PreferencesPanel({ value, onChange }: PreferencesPanelProps) {
           </button>
         </div>
 
-        <label className="inline-check">
+        <div className="inline-check" role="group" aria-label="诚信付费设置">
           {value.epubPaidUnlocked ? (
             <span className="paid-status">已诚信付费</span>
           ) : (
@@ -91,7 +91,7 @@ export function PreferencesPanel({ value, onChange }: PreferencesPanelProps) {
           >
             <CircleHelp size={16} />
           </button>
-        </label>
+        </div>
       </div>
 
       {showPaymentHelp ? (
