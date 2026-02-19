@@ -213,7 +213,7 @@ test("EPUB 闭环翻译可写入历史并自动导出", async ({ page }) => {
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "开始闭环翻译" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/_已翻译\.epub$/);
+  expect(download.suggestedFilename()).toMatch(/_已翻译_[A-Za-z0-9_]+\.epub$/);
 
   await expect(page.locator(".toast")).toContainText("EPUB 闭环翻译完成");
   await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();

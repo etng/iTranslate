@@ -67,8 +67,23 @@ export function buildEpubSourceLabel(epubFileNameBase: string, htmlFileName: str
   return `${sanitizeTitlePart(epubFileNameBase)}${EPUB_SOURCE_SEPARATOR}${sanitizeTitlePart(htmlFileName)}`;
 }
 
-export function buildTranslatedEpubFileName(epubFileNameBase: string): string {
-  return `${sanitizeTitlePart(epubFileNameBase)}_已翻译.epub`;
+export function resolveTargetLanguageFileSuffix(targetLanguage: string): string {
+  const normalized = targetLanguage.trim().toLowerCase();
+  if (!normalized) return "unknown";
+  if (["japanese", "ja", "ja-jp", "日语", "日本語"].includes(normalized)) return "Japanese";
+  if (["english", "en", "英语"].includes(normalized)) return "English";
+  if (["simplified chinese", "zh-cn", "简体中文"].includes(normalized)) return "SimplifiedChinese";
+  if (["traditional chinese", "zh-tw", "繁体中文"].includes(normalized)) return "TraditionalChinese";
+  if (["korean", "ko", "韩语"].includes(normalized)) return "Korean";
+  if (["french", "fr", "法语"].includes(normalized)) return "French";
+  if (["german", "de", "德语"].includes(normalized)) return "German";
+  if (["spanish", "es", "西班牙语"].includes(normalized)) return "Spanish";
+  if (["russian", "ru", "俄语"].includes(normalized)) return "Russian";
+  return sanitizeTitlePart(targetLanguage).replace(/\s+/g, "");
+}
+
+export function buildTranslatedEpubFileName(epubFileNameBase: string, targetLanguage: string): string {
+  return `${sanitizeTitlePart(epubFileNameBase)}_已翻译_${resolveTargetLanguageFileSuffix(targetLanguage)}.epub`;
 }
 
 function extractChapterTitle(markdown: string, fallbackFileName: string): string {

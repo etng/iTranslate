@@ -111,7 +111,7 @@ export function EpubImportWizard({
             </select>
           </label>
           <p className="status-label">
-            闭环流程：拆解 EPUB {"->"} 批量翻译写入历史 {"->"} 自动导出“_已翻译.epub”
+            闭环流程：拆解 EPUB {"->"} 批量翻译写入历史 {"->"} 自动导出“_已翻译_目标语言.epub”
           </p>
           {file ? (
             <p className="status-label">当前文件：{file.name}</p>

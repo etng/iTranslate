@@ -767,8 +767,9 @@ function App() {
         language: toEpubLanguageCode(imported.metaLanguage || payload.targetLanguage),
         identifier: crypto.randomUUID(),
         layoutMode: payload.targetLanguage === "Japanese" ? "ja-vertical" : "default",
+        contentMode: payload.targetLanguage === "Japanese" ? "translated-only" : "bilingual",
       });
-      const exportName = buildTranslatedEpubFileName(imported.fileNameBase);
+      const exportName = buildTranslatedEpubFileName(imported.fileNameBase, payload.targetLanguage);
       const savedPath = await saveEpubByPicker(exportBlob, exportName, preferences.epubDefaultExportDir);
 
       setEpubWizardOpen(false);

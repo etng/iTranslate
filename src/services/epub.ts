@@ -13,6 +13,7 @@ interface EpubChapter {
 }
 
 export type EpubLayoutMode = "default" | "ja-vertical";
+export type EpubContentMode = "bilingual" | "translated-only";
 
 export interface EpubOptions {
   title: string;
@@ -20,6 +21,7 @@ export interface EpubOptions {
   language: string;
   identifier: string;
   layoutMode?: EpubLayoutMode;
+  contentMode?: EpubContentMode;
 }
 
 function xmlEscape(text: string): string {
@@ -87,9 +89,21 @@ function normalizeHtmlFragmentForXhtml(html: string): string {
   return normalizeVoidTagsForXhtml(normalizeXhtmlEntities(html));
 }
 
-function createChapterXhtml(chapter: EpubChapter, language: string): string {
+function createChapterXhtml(chapter: EpubChapter, language: string, contentMode: EpubContentMode): string {
   const sourceHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.sourceMarkdown));
   const targetHtml = normalizeHtmlFragmentForXhtml(renderMarkdownToHtml(chapter.targetMarkdown));
+  const content = contentMode === "translated-only"
+    ? `<section class="translated-only">
+      ${targetHtml}
+    </section>`
+    : `<section>
+      <h2>原文</h2>
+      ${sourceHtml}
+    </section>
+    <section>
+      <h2>译文</h2>
+      ${targetHtml}
+    </section>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${xmlEscape(language)}">
@@ -100,14 +114,7 @@ function createChapterXhtml(chapter: EpubChapter, language: string): string {
   </head>
   <body>
     <h1>${xmlEscape(chapter.title)}</h1>
-    <section>
-      <h2>原文</h2>
-      ${sourceHtml}
-    </section>
-    <section>
-      <h2>译文</h2>
-      ${targetHtml}
-    </section>
+    ${content}
   </body>
 </html>`;
 }
@@ -115,10 +122,11 @@ function createChapterXhtml(chapter: EpubChapter, language: string): string {
 function buildStyles(layoutMode: EpubLayoutMode): string {
   if (layoutMode === "ja-vertical") {
     return [
-      "body{font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;text-orientation:mixed;direction:rtl;}",
+      "html,body{margin:0;padding:0;}",
+      "body{font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;text-orientation:mixed;direction:rtl;text-align:start;text-justify:auto;}",
       "h1,h2{page-break-after:avoid;line-break:strict;}",
-      "section{margin-left:1.2em;}",
-      "p{margin:0 0 0.9em 0;}",
+      "section{margin-left:1.2em;break-inside:avoid;}",
+      "p{margin-block-start:0;margin-block-end:0.9em;}",
       "img{max-inline-size:80%;height:auto;}",
     ].join("");
   }
@@ -130,6 +138,7 @@ export async function buildBilingualEpubBlob(
   options: EpubOptions,
 ): Promise<Blob> {
   const layoutMode = options.layoutMode ?? "default";
+  const contentMode = options.contentMode ?? "bilingual";
   const pageProgressionDirection = layoutMode === "ja-vertical" ? "rtl" : "ltr";
   const chapters: EpubChapter[] = historyItems.map((item, index) => ({
     id: `chap-${index + 1}`,
@@ -156,7 +165,7 @@ export async function buildBilingualEpubBlob(
   oebps?.file("styles.css", buildStyles(layoutMode));
 
   chapters.forEach((chapter, index) => {
-    oebps?.file(`chapter-${index + 1}.xhtml`, createChapterXhtml(chapter, options.language));
+    oebps?.file(`chapter-${index + 1}.xhtml`, createChapterXhtml(chapter, options.language, contentMode));
   });
 
   const manifestItems = chapters

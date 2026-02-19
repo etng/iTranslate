@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { TranslationHistoryItem } from "../types";
-import { buildBilingualEpubBlob, saveEpubByPicker, type EpubLayoutMode } from "../services/epub";
+import {
+  buildBilingualEpubBlob,
+  saveEpubByPicker,
+  type EpubContentMode,
+  type EpubLayoutMode,
+} from "../services/epub";
+import { resolveTargetLanguageFileSuffix } from "../services/epubImport";
 
 interface ExportEpubWizardProps {
   open: boolean;
@@ -32,6 +38,7 @@ export function ExportEpubWizard({
   const [author, setAuthor] = useState(defaultAuthor || "iTranslate");
   const [language, setLanguage] = useState("zh-CN");
   const [layoutMode, setLayoutMode] = useState<EpubLayoutMode>("default");
+  const [contentMode, setContentMode] = useState<EpubContentMode>("bilingual");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [chapterOrderMode, setChapterOrderMode] = useState<ChapterOrderMode>("auto");
   const [manualOrderIds, setManualOrderIds] = useState<string[]>([]);
@@ -79,6 +86,7 @@ export function ExportEpubWizard({
     setSetDefaultDir(false);
     setLanguage("zh-CN");
     setLayoutMode("default");
+    setContentMode("bilingual");
     setChapterOrderMode("auto");
     setManualOrderIds(defaultChapterItems.map((item) => item.id));
     setStep(1);
@@ -87,6 +95,7 @@ export function ExportEpubWizard({
   useEffect(() => {
     if (language.toLowerCase().startsWith("ja")) {
       setLayoutMode("ja-vertical");
+      setContentMode("translated-only");
     } else if (layoutMode === "ja-vertical") {
       setLayoutMode("default");
     }
@@ -108,9 +117,11 @@ export function ExportEpubWizard({
         language,
         identifier: crypto.randomUUID(),
         layoutMode,
+        contentMode,
       });
       const safeTitle = (bookTitle.trim() || "双语译文合集").replace(/[\\/:*?"<>|]/g, "_");
-      const savedPath = await saveEpubByPicker(blob, `${safeTitle}.epub`, defaultDir);
+      const languageSuffix = resolveTargetLanguageFileSuffix(language);
+      const savedPath = await saveEpubByPicker(blob, `${safeTitle}_${languageSuffix}.epub`, defaultDir);
       if (!savedPath) {
         return;
       }
@@ -162,6 +173,16 @@ export function ExportEpubWizard({
               <select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as EpubLayoutMode)}>
                 <option value="default">标准横排</option>
                 <option value="ja-vertical">日文竖排（右到左段落流）</option>
+              </select>
+            </label>
+            <label>
+              导出内容
+              <select
+                value={contentMode}
+                onChange={(event) => setContentMode(event.target.value as EpubContentMode)}
+              >
+                <option value="bilingual">原文+译文</option>
+                <option value="translated-only">仅译文</option>
               </select>
             </label>
             <label>

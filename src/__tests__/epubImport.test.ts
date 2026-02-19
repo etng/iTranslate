@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import {
   buildEpubSourceLabel,
   buildTranslatedEpubFileName,
+  resolveTargetLanguageFileSuffix,
   parseEpubFile,
 } from "../services/epubImport";
 
@@ -47,7 +48,8 @@ describe("epubImport", () => {
     expect(title).toContain("MyBook");
     expect(title).toContain("chapter-1.xhtml");
 
-    const outputName = buildTranslatedEpubFileName("MyBook");
-    expect(outputName).toBe("MyBook_已翻译.epub");
+    const outputName = buildTranslatedEpubFileName("MyBook", "Japanese");
+    expect(outputName).toBe("MyBook_已翻译_Japanese.epub");
+    expect(resolveTargetLanguageFileSuffix("ja")).toBe("Japanese");
   });
 });

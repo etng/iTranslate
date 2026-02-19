@@ -59,6 +59,7 @@ describe("epub 导出 XHTML 兼容性", () => {
       language: "ja",
       identifier: "ja-book-id",
       layoutMode: "ja-vertical",
+      contentMode: "translated-only",
     });
 
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
@@ -70,5 +71,6 @@ describe("epub 导出 XHTML 兼容性", () => {
     expect(styles).toContain("writing-mode:vertical-rl");
     expect(styles).toContain("direction:rtl");
     expect(chapterXhtml).toContain('xml:lang="ja"');
+    expect(chapterXhtml).not.toContain("<h2>原文</h2>");
   });
 });
