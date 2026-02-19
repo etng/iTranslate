@@ -1,13 +1,23 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import JSZip from "jszip";
+import { Agent } from "undici";
 
 const fixturePath = process.env.FIXTURE_PATH ?? "src/__tests__/fixtures/jane_tyre.md";
 const outputPath = process.env.OUTPUT_PATH ?? "tmp/jane-eyre-ja-vertical-sample.epub";
 const chapterLimit = Number(process.env.CHAPTER_LIMIT ?? "6");
+const chapterMaxLines = Number(process.env.CHAPTER_MAX_LINES ?? "28");
 const useOllama = process.env.USE_OLLAMA !== "0";
 const ollamaEndpoint = process.env.OLLAMA_ENDPOINT ?? "http://127.0.0.1:11434";
 const ollamaModel = process.env.OLLAMA_MODEL ?? "translategemma";
+const ollamaTimeoutMs = Number(process.env.OLLAMA_TIMEOUT_MS ?? "600000");
+const ollamaRetry = Number(process.env.OLLAMA_RETRY ?? "2");
+const continueOnError = process.env.CONTINUE_ON_ERROR !== "0";
+const ollamaDispatcher = new Agent({
+  connectTimeout: 30_000,
+  headersTimeout: ollamaTimeoutMs,
+  bodyTimeout: ollamaTimeoutMs,
+});
 
 function resolveLanguageCode(languageName) {
   const map = {
@@ -81,21 +91,40 @@ async function translateToJapanese(markdown) {
     return markdown;
   }
   const prompt = buildTranslategemmaPrompt("English", "Japanese", markdown);
-  const response = await fetch(`${ollamaEndpoint.replace(/\/$/, "")}/api/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: ollamaModel,
-      prompt,
-      stream: false,
-    }),
-  });
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Ollama 调用失败：${response.status} ${message}`);
+
+  let attempt = 0;
+  let lastError = null;
+  while (attempt <= ollamaRetry) {
+    try {
+      const response = await fetch(`${ollamaEndpoint.replace(/\/$/, "")}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: ollamaModel,
+          prompt,
+          stream: false,
+        }),
+        dispatcher: ollamaDispatcher,
+      });
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Ollama 调用失败：${response.status} ${message}`);
+      }
+      const data = await response.json();
+      return String(data.response ?? "").trim();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= ollamaRetry) {
+        break;
+      }
+      const backoff = Math.min(2000 * (attempt + 1), 8000);
+      console.warn(`Ollama 翻译失败，准备重试（${attempt + 1}/${ollamaRetry}），等待 ${backoff}ms`);
+      await new Promise((resolve) => setTimeout(resolve, backoff));
+    }
+    attempt += 1;
   }
-  const data = await response.json();
-  return String(data.response ?? "").trim();
+
+  throw lastError ?? new Error("Ollama 调用失败");
 }
 
 function createChapterXhtml(chapter) {
@@ -221,12 +250,22 @@ async function main() {
   }
 
   console.log(`开始构建日文竖排 EPUB，章节数=${chapters.length}，USE_OLLAMA=${useOllama ? "1" : "0"}`);
+  console.log(`参数：CHAPTER_MAX_LINES=${chapterMaxLines} OLLAMA_TIMEOUT_MS=${ollamaTimeoutMs} OLLAMA_RETRY=${ollamaRetry} CONTINUE_ON_ERROR=${continueOnError ? "1" : "0"}`);
   const translated = [];
   for (let index = 0; index < chapters.length; index += 1) {
     const chapter = chapters[index];
-    const sourceMarkdown = chapter.markdown.split("\n").slice(0, 60).join("\n");
+    const sourceMarkdown = chapter.markdown.split("\n").slice(0, Math.max(8, chapterMaxLines)).join("\n");
     console.log(`[${index + 1}/${chapters.length}] 处理章节：${chapter.title}`);
-    const targetMarkdown = await translateToJapanese(sourceMarkdown);
+    let targetMarkdown = sourceMarkdown;
+    try {
+      targetMarkdown = await translateToJapanese(sourceMarkdown);
+    } catch (error) {
+      if (!continueOnError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[${index + 1}/${chapters.length}] 章节翻译失败，使用原文回退：${message}`);
+    }
     translated.push({
       title: chapter.title,
       sourceMarkdown,
