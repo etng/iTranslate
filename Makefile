@@ -2,7 +2,7 @@ SHELL := /bin/zsh
 SIGNER_KEY_PATH ?= $(HOME)/.tauri/keys/itranslate.key
 SIGNER_PASSWORD ?= mksakmc
 
-.PHONY: help install init-data init seed-history sample-ja-epub bump-version release setup-e2e run-web run-desktop up-web up-desktop lint typecheck test test-e2e build check clean signer-generate signer-copy-private signer-copy-public signer-copy-password signer-sync-pubkey
+.PHONY: help install init-data init seed-history sample-ja-epub test-epub-fixture bump-version release setup-e2e run-web run-desktop up-web up-desktop lint typecheck test test-e2e build check clean signer-generate signer-copy-private signer-copy-public signer-copy-password signer-sync-pubkey
 
 help:
 	@echo "可用命令："
@@ -13,6 +13,7 @@ help:
 	@echo "  make up-desktop  - 一键初始化并启动桌面程序"
 	@echo "  make seed-history- 生成分页演示 seed 并在下次启动自动注入"
 	@echo "  make sample-ja-epub - 用 fixture 生成日文竖排 EPUB 样例"
+	@echo "  make test-epub-fixture - 使用 fixture EPUB 运行专项回归测试"
 	@echo "  make bump-version PART=patch|minor|major - 升级版本并打 tag"
 	@echo "  make release PART=patch|minor|major      - 一键升级版本并推送 tag 发布"
 	@echo "  make signer-generate      - 生成 Tauri updater 密钥对"
@@ -40,6 +41,9 @@ seed-history:
 
 sample-ja-epub:
 	@node scripts/build-ja-epub-sample.mjs
+
+test-epub-fixture:
+	@npm run test -- src/__tests__/epubFixture.test.ts
 
 bump-version:
 	@if [ -z "$(PART)" ]; then \
