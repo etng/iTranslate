@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { LanguageOption, TranslatorModelConfig } from "../types";
+import type { EpubContentMode } from "../services/epub";
 
 interface EpubImportWizardProps {
   open: boolean;
@@ -16,6 +17,7 @@ interface EpubImportWizardProps {
     sourceLanguage: string;
     targetLanguage: string;
     engineId: string;
+    contentMode: EpubContentMode;
   }) => void;
 }
 
@@ -35,6 +37,9 @@ export function EpubImportWizard({
   const [localSourceLanguage, setLocalSourceLanguage] = useState(sourceLanguage);
   const [localTargetLanguage, setLocalTargetLanguage] = useState(targetLanguage);
   const [localEngineId, setLocalEngineId] = useState(selectedEngineId);
+  const [contentMode, setContentMode] = useState<EpubContentMode>(
+    targetLanguage === "Japanese" ? "translated-only" : "bilingual",
+  );
 
   const canStart = useMemo(
     () => Boolean(file) && Boolean(localEngineId) && !running,
@@ -85,7 +90,13 @@ export function EpubImportWizard({
             目标语言
             <select
               value={localTargetLanguage}
-              onChange={(event) => setLocalTargetLanguage(event.target.value)}
+              onChange={(event) => {
+                const nextLanguage = event.target.value;
+                setLocalTargetLanguage(nextLanguage);
+                if (nextLanguage === "Japanese") {
+                  setContentMode("translated-only");
+                }
+              }}
               disabled={running}
             >
               {languages.map((language) => (
@@ -108,6 +119,17 @@ export function EpubImportWizard({
                   {engine.name}
                 </option>
               ))}
+            </select>
+          </label>
+          <label>
+            导出内容
+            <select
+              value={contentMode}
+              onChange={(event) => setContentMode(event.target.value as EpubContentMode)}
+              disabled={running}
+            >
+              <option value="bilingual">原文+译文</option>
+              <option value="translated-only">仅译文</option>
             </select>
           </label>
           <p className="status-label">
@@ -138,6 +160,7 @@ export function EpubImportWizard({
                 sourceLanguage: localSourceLanguage,
                 targetLanguage: localTargetLanguage,
                 engineId: localEngineId,
+                contentMode,
               });
             }}
           >

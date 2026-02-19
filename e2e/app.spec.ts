@@ -202,6 +202,8 @@ test("EPUB 闭环翻译可写入历史并自动导出", async ({ page }) => {
 
   await page.getByRole("button", { name: "EPUB闭环翻译" }).click();
   await expect(page.getByRole("dialog", { name: "EPUB 闭环翻译" })).toBeVisible();
+  await expect(page.getByLabel("导出内容")).toBeVisible();
+  await page.getByLabel("导出内容").selectOption("translated-only");
 
   const epubBuffer = await buildSampleEpubBuffer();
   await page.getByLabel("选择EPUB文件").setInputFiles({

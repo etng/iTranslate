@@ -66,6 +66,7 @@ import {
   parseEpubFile,
 } from "./services/epubImport";
 import { buildBilingualEpubBlob, saveEpubByPicker } from "./services/epub";
+import type { EpubContentMode } from "./services/epub";
 import "./App.css";
 
 const SETUP_KEY = "itranslate.setup.done";
@@ -689,6 +690,7 @@ function App() {
     sourceLanguage: string;
     targetLanguage: string;
     engineId: string;
+    contentMode: EpubContentMode;
   }) => {
     const engine = availableEngines.find((item) => item.id === payload.engineId) ?? null;
     if (!engine) {
@@ -767,7 +769,7 @@ function App() {
         language: toEpubLanguageCode(imported.metaLanguage || payload.targetLanguage),
         identifier: crypto.randomUUID(),
         layoutMode: payload.targetLanguage === "Japanese" ? "ja-vertical" : "default",
-        contentMode: payload.targetLanguage === "Japanese" ? "translated-only" : "bilingual",
+        contentMode: payload.contentMode,
       });
       const exportName = buildTranslatedEpubFileName(imported.fileNameBase, payload.targetLanguage);
       const savedPath = await saveEpubByPicker(exportBlob, exportName, preferences.epubDefaultExportDir);
