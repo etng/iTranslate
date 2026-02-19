@@ -147,7 +147,28 @@ function isOutputLanguageAcceptable(targetLanguage: string, outputMarkdown: stri
   if (targetLanguage !== "Japanese") {
     return true;
   }
-  return detectSourceLanguage(outputMarkdown) === "Japanese";
+  const detected = detectSourceLanguage(outputMarkdown);
+  if (detected === "Japanese") {
+    return true;
+  }
+
+  const compact = outputMarkdown.replace(/\s+/g, "");
+  const kanaCount = (compact.match(/[\u3040-\u30ff]/g) ?? []).length;
+  if (kanaCount >= 2) {
+    return true;
+  }
+
+  // 有些译文会偏正式，假名较少但依旧是日语。此时允许“高 CJK、低拉丁”的文本通过。
+  const hanCount = (compact.match(/[\u4e00-\u9fff]/g) ?? []).length;
+  const latinCount = (compact.match(/[A-Za-z]/g) ?? []).length;
+  const japanesePunctuation = /[。、「」『』・]/.test(outputMarkdown);
+  if (hanCount >= 40 && latinCount <= Math.max(8, Math.floor(hanCount * 0.08))) {
+    return true;
+  }
+  if (japanesePunctuation && hanCount >= 16 && latinCount <= 10) {
+    return true;
+  }
+  return false;
 }
 
 function App() {
