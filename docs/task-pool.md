@@ -95,6 +95,7 @@
 - [x] 日文竖排改为 `html` 根级写字模式 + 全节点继承，避免阅读器局部样式失效
 - [x] 偏好页“诚信付费”改为状态按钮 + 帮助弹层（含文字说明与支付宝/微信占位二维码）
 - [x] EPUB 闭环优先复用同书同章节同语向的历史结果，避免重复处理后再导出
+- [x] EPUB 闭环复用前增加目标语言校验（不匹配则放弃复用并重译）
 说明：
 - 分包结果：主包 `index` 从约 `1070.38 kB` 降至约 `182.19 kB`，其余拆分到 `vendor/editor/markdown/tauri`。
 - `Updater` 已配置：`src-tauri/tauri.conf.json` 已写入 `pubkey` 与 `latest.json` 地址；私钥文件仅本地保存并已通过 `.gitignore` 排除，应在 CI 中注入 `TAURI_SIGNING_PRIVATE_KEY*` 环境变量。
