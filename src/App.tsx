@@ -140,6 +140,16 @@ function toEpubLanguageCode(language: string): string {
   return language;
 }
 
+function isOutputLanguageAcceptable(targetLanguage: string, outputMarkdown: string): boolean {
+  if (!outputMarkdown.trim()) {
+    return false;
+  }
+  if (targetLanguage !== "Japanese") {
+    return true;
+  }
+  return detectSourceLanguage(outputMarkdown) === "Japanese";
+}
+
 function App() {
   const [setupDone, setSetupDone] = useState(localStorage.getItem(SETUP_KEY) === "1");
   const [modelConfig, setModelConfig] = useState<TranslatorModelConfig>(DEFAULT_MODEL_CONFIG);
@@ -422,7 +432,7 @@ function App() {
       try {
         const preprocessed = preprocessInput(rawInput);
         const skipTranslation = shouldSkipTranslation(effectiveSourceLanguage, effectiveTargetLanguage);
-        const result = skipTranslation
+        let result = skipTranslation
           ? { outputMarkdown: preprocessed.markdown, usedPrompt: "" }
           : await translateWithModel({
             sourceLanguage: effectiveSourceLanguage,
@@ -431,6 +441,20 @@ function App() {
             inputMarkdown: preprocessed.markdown,
             modelConfig: selectedEngine,
           });
+
+        if (!skipTranslation && !isOutputLanguageAcceptable(effectiveTargetLanguage, result.outputMarkdown)) {
+          appendLog("WARN", `[${requestId}] 输出语言与目标语言不一致，自动重试一次`);
+          result = await translateWithModel({
+            sourceLanguage: effectiveSourceLanguage,
+            targetLanguage: effectiveTargetLanguage,
+            inputRaw: rawInput,
+            inputMarkdown: preprocessed.markdown,
+            modelConfig: selectedEngine,
+          });
+          if (!isOutputLanguageAcceptable(effectiveTargetLanguage, result.outputMarkdown)) {
+            throw new Error(`翻译结果疑似未按目标语言输出（目标：${effectiveTargetLanguage}）`);
+          }
+        }
 
         setOutputMarkdown(result.outputMarkdown);
         setLinkedRange(null);
@@ -742,20 +766,26 @@ function App() {
           && item.targetLanguage === payload.targetLanguage
           && item.outputMarkdown.trim().length > 0
         ));
+        const canReuseExisting = Boolean(
+          existingMatch && isOutputLanguageAcceptable(payload.targetLanguage, existingMatch.outputMarkdown),
+        );
 
         setEpubPipelineProgress({
           current: index + 1,
           total: chaptersToProcess.length,
-          message: existingMatch ? `复用章节 ${chapter.fileName}` : `翻译章节 ${chapter.fileName}`,
+          message: canReuseExisting ? `复用章节 ${chapter.fileName}` : `翻译章节 ${chapter.fileName}`,
         });
 
-        if (existingMatch) {
+        if (canReuseExisting && existingMatch) {
           translatedItems.push(existingMatch);
           appendLog("INFO", `复用历史译文：${sourceLabel}`);
           continue;
         }
+        if (existingMatch && !canReuseExisting) {
+          appendLog("WARN", `历史译文语言不匹配，放弃复用并重译：${sourceLabel}`);
+        }
 
-        const result = skipTranslation
+        let result = skipTranslation
           ? { outputMarkdown: chapter.markdown, usedPrompt: "" }
           : await translateWithModel({
             sourceLanguage: payload.sourceLanguage,
@@ -764,6 +794,20 @@ function App() {
             inputMarkdown: chapter.markdown,
             modelConfig: engine,
           });
+
+        if (!skipTranslation && !isOutputLanguageAcceptable(payload.targetLanguage, result.outputMarkdown)) {
+          appendLog("WARN", `章节输出语言不匹配，自动重试：${sourceLabel}`);
+          result = await translateWithModel({
+            sourceLanguage: payload.sourceLanguage,
+            targetLanguage: payload.targetLanguage,
+            inputRaw: chapter.html,
+            inputMarkdown: chapter.markdown,
+            modelConfig: engine,
+          });
+          if (!isOutputLanguageAcceptable(payload.targetLanguage, result.outputMarkdown)) {
+            throw new Error(`章节 ${chapter.fileName} 翻译结果未按目标语言输出，请重试或更换模型`);
+          }
+        }
 
         const historyItem = createHistoryItem({
           title: chapter.title,
