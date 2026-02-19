@@ -123,9 +123,9 @@ function buildStyles(layoutMode: EpubLayoutMode): string {
   if (layoutMode === "ja-vertical") {
     return [
       "html,body{margin:0;padding:0;}",
-      "body{font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;text-orientation:mixed;direction:rtl;text-align:start;text-justify:auto;}",
+      "body{display:block;font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;line-height:1.9;writing-mode:vertical-rl;-epub-writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;text-orientation:mixed;direction:rtl;text-align:start;text-justify:auto;}",
       "h1,h2{page-break-after:avoid;line-break:strict;}",
-      "section{margin-left:1.2em;break-inside:avoid;}",
+      "section,.translated-only{margin-left:1.2em;break-inside:avoid;writing-mode:inherit;-epub-writing-mode:inherit;-webkit-writing-mode:inherit;text-align:start;}",
       "p{margin-block-start:0;margin-block-end:0.9em;}",
       "img{max-inline-size:80%;height:auto;}",
     ].join("");
@@ -136,6 +136,7 @@ function buildStyles(layoutMode: EpubLayoutMode): string {
 export async function buildBilingualEpubBlob(
   historyItems: TranslationHistoryItem[],
   options: EpubOptions,
+  onProgress?: (percent: number) => void,
 ): Promise<Blob> {
   const layoutMode = options.layoutMode ?? "default";
   const contentMode = options.contentMode ?? "bilingual";
@@ -230,7 +231,16 @@ ${navPoints}
 </package>`,
   );
 
-  return zip.generateAsync({ type: "blob" });
+  return zip.generateAsync(
+    { type: "blob" },
+    (metadata) => {
+      if (!onProgress) {
+        return;
+      }
+      const safePercent = Number.isFinite(metadata.percent) ? Math.max(0, Math.min(100, metadata.percent)) : 0;
+      onProgress(safePercent);
+    },
+  );
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

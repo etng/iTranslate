@@ -45,6 +45,7 @@ export function ExportEpubWizard({
   const [setDefaultDir, setSetDefaultDir] = useState(false);
   const [setDefaultAuthor, setSetDefaultAuthor] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   const defaultChapterItems = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -87,6 +88,7 @@ export function ExportEpubWizard({
     setLanguage("zh-CN");
     setLayoutMode("default");
     setContentMode("bilingual");
+    setExportProgress(0);
     setChapterOrderMode("auto");
     setManualOrderIds(defaultChapterItems.map((item) => item.id));
     setStep(1);
@@ -110,6 +112,7 @@ export function ExportEpubWizard({
       return;
     }
     setExporting(true);
+    setExportProgress(0);
     try {
       const blob = await buildBilingualEpubBlob(sortedItems, {
         title: bookTitle.trim() || "双语译文合集",
@@ -118,6 +121,8 @@ export function ExportEpubWizard({
         identifier: crypto.randomUUID(),
         layoutMode,
         contentMode,
+      }, (percent) => {
+        setExportProgress(percent);
       });
       const safeTitle = (bookTitle.trim() || "双语译文合集").replace(/[\\/:*?"<>|]/g, "_");
       const languageSuffix = resolveTargetLanguageFileSuffix(language);
@@ -139,6 +144,7 @@ export function ExportEpubWizard({
       setStep(1);
     } finally {
       setExporting(false);
+      setExportProgress(0);
     }
   };
 
@@ -214,6 +220,12 @@ export function ExportEpubWizard({
               </select>
             </label>
             <p>将导出 {sortedItems.length} 个章节（每条记录一个章节，含原文+译文）。</p>
+            {exporting ? (
+              <div>
+                <p className="status-label">打包进度：{Math.round(exportProgress)}%</p>
+                <progress max={100} value={Math.max(0, Math.min(100, exportProgress))} aria-label="导出EPUB进度" />
+              </div>
+            ) : null}
             <div className="wizard-preview">
               {sortedItems.map((item, index) => {
                 const moveUpDisabled = chapterOrderMode !== "manual" || index === 0;

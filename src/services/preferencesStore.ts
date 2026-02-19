@@ -5,6 +5,7 @@ const PREFERENCES_KEY = "itranslate.preferences.v1";
 const DEFAULT_PREFERENCES: UserPreferences = {
   epubDefaultAuthor: "iTranslate",
   epubDefaultExportDir: null,
+  epubPaidUnlocked: false,
 };
 
 export function loadPreferences(): UserPreferences {
@@ -17,6 +18,7 @@ export function loadPreferences(): UserPreferences {
     return {
       epubDefaultAuthor: parsed.epubDefaultAuthor?.trim() || DEFAULT_PREFERENCES.epubDefaultAuthor,
       epubDefaultExportDir: parsed.epubDefaultExportDir ?? DEFAULT_PREFERENCES.epubDefaultExportDir,
+      epubPaidUnlocked: parsed.epubPaidUnlocked ?? DEFAULT_PREFERENCES.epubPaidUnlocked,
     };
   } catch {
     return DEFAULT_PREFERENCES;

@@ -74,6 +74,7 @@ const AUTO_TRANSLATE_DEBOUNCE_MS = 650;
 const AUTO_DETECT_LANGUAGE_DEBOUNCE_MS = 280;
 const QUOTE_ROTATE_INTERVAL_MS = 60_000;
 const HISTORY_SEED_APPLIED_KEY = "itranslate.history.seed.applied.v1";
+const EPUB_TRIAL_CHAPTER_LIMIT = 3;
 
 type TranslateTrigger = "manual" | "paste";
 type LogLevel = "INFO" | "WARN" | "ERROR";
@@ -710,9 +711,17 @@ function App() {
         throw new Error("未在 EPUB 中发现可翻译章节（HTML/XHTML）");
       }
 
+      const chapterLimit = preferences.epubPaidUnlocked
+        ? imported.chapters.length
+        : Math.min(EPUB_TRIAL_CHAPTER_LIMIT, imported.chapters.length);
+      const chaptersToProcess = imported.chapters.slice(0, chapterLimit);
+      if (!preferences.epubPaidUnlocked && imported.chapters.length > chapterLimit) {
+        appendLog("WARN", `未解锁完整模式，仅处理前 ${chapterLimit} / ${imported.chapters.length} 章`);
+      }
+
       setEpubPipelineProgress({
         current: 0,
-        total: imported.chapters.length,
+        total: chaptersToProcess.length,
         message: "开始批量翻译...",
       });
 
@@ -722,11 +731,11 @@ function App() {
         appendLog("INFO", "EPUB 闭环检测到同语种，批量跳过模型调用");
       }
 
-      for (let index = 0; index < imported.chapters.length; index += 1) {
-        const chapter = imported.chapters[index];
+      for (let index = 0; index < chaptersToProcess.length; index += 1) {
+        const chapter = chaptersToProcess[index];
         setEpubPipelineProgress({
           current: index + 1,
-          total: imported.chapters.length,
+          total: chaptersToProcess.length,
           message: `翻译章节 ${chapter.fileName}`,
         });
 
@@ -776,9 +785,12 @@ function App() {
 
       setEpubWizardOpen(false);
       setScreen("history");
-      setStatusText("EPUB 闭环翻译已完成");
+      const completionText = preferences.epubPaidUnlocked || imported.chapters.length <= chapterLimit
+        ? "EPUB 闭环翻译已完成"
+        : `EPUB 闭环翻译已完成（试用模式：仅导出前 ${chapterLimit} 章）`;
+      setStatusText(completionText);
       setToastMessage(savedPath ? `EPUB 闭环翻译完成：${savedPath}` : "EPUB 闭环翻译完成");
-      appendLog("INFO", `EPUB 闭环翻译完成：${payload.file.name}，章节数=${translatedItems.length}`);
+      appendLog("INFO", `EPUB 闭环翻译完成：${payload.file.name}，章节数=${translatedItems.length}/${imported.chapters.length}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "未知错误";
       setStatusText(`EPUB 闭环翻译失败：${message}`);
@@ -787,7 +799,7 @@ function App() {
     } finally {
       setEpubPipelineRunning(false);
     }
-  }, [appendLog, availableEngines, preferences.epubDefaultAuthor, preferences.epubDefaultExportDir]);
+  }, [appendLog, availableEngines, preferences.epubDefaultAuthor, preferences.epubDefaultExportDir, preferences.epubPaidUnlocked]);
 
   if (!setupDone) {
     return <SetupWizard modelConfig={modelConfig} onComplete={handleEnterApp} />;
@@ -1040,6 +1052,7 @@ function App() {
         selectedEngineId={selectedEngine?.id ?? ""}
         languages={LANGUAGE_OPTIONS}
         engines={availableEngines}
+        paidUnlocked={preferences.epubPaidUnlocked}
         progress={epubPipelineProgress}
         onClose={() => {
           if (epubPipelineRunning) {

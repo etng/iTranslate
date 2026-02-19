@@ -10,6 +10,7 @@ interface EpubImportWizardProps {
   selectedEngineId: string;
   languages: LanguageOption[];
   engines: TranslatorModelConfig[];
+  paidUnlocked: boolean;
   progress: { current: number; total: number; message: string };
   onClose: () => void;
   onStart: (payload: {
@@ -29,6 +30,7 @@ export function EpubImportWizard({
   selectedEngineId,
   languages,
   engines,
+  paidUnlocked,
   progress,
   onClose,
   onStart,
@@ -135,13 +137,25 @@ export function EpubImportWizard({
           <p className="status-label">
             闭环流程：拆解 EPUB {"->"} 批量翻译写入历史 {"->"} 自动导出“_已翻译_目标语言.epub”
           </p>
+          {!paidUnlocked ? (
+            <p className="status-label">
+              当前未解锁完整模式：默认仅处理前三章。可在“用户偏好”中勾选“我已诚信付费”后完整导出。
+            </p>
+          ) : null}
           {file ? (
             <p className="status-label">当前文件：{file.name}</p>
           ) : null}
           {running ? (
-            <p className="status-label">
-              进度：{progress.current}/{progress.total} {progress.message}
-            </p>
+            <>
+              <p className="status-label">
+                进度：{progress.current}/{progress.total} {progress.message}
+              </p>
+              <progress
+                max={Math.max(1, progress.total)}
+                value={Math.min(progress.current, Math.max(1, progress.total))}
+                aria-label="EPUB闭环进度"
+              />
+            </>
           ) : null}
         </div>
 

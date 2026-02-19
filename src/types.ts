@@ -74,4 +74,5 @@ export interface EngineStoreState {
 export interface UserPreferences {
   epubDefaultAuthor: string;
   epubDefaultExportDir: string | null;
+  epubPaidUnlocked: boolean;
 }

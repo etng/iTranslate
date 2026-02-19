@@ -64,6 +64,15 @@ export function PreferencesPanel({ value, onChange }: PreferencesPanelProps) {
             <Eraser size={16} />
           </button>
         </div>
+
+        <label className="inline-check">
+          <input
+            type="checkbox"
+            checked={value.epubPaidUnlocked}
+            onChange={(event) => onChange({ ...value, epubPaidUnlocked: event.target.checked })}
+          />
+          我已诚信付费（开启后 EPUB 闭环可完整导出全部章节）
+        </label>
       </div>
     </section>
   );
